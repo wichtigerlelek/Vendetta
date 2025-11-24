@@ -40,53 +40,30 @@ namespace vendetta
 		}
 	};
 
-	bool inject_phantom_dll(const PROCESS_INFORMATION& pi, const BYTE* buf, SIZE_T buf_size, const std::wstring& legitimate_dll_path);
-	HANDLE hijack_process_handle(const DWORD target_pid);
+	bool inject_phantom_dll(const PROCESS_INFORMATION& pi,
+		const std::wstring& legitimate_dll_path);
+	HANDLE hijack_process_handle(DWORD target_pid);
+	HANDLE find_process_to_proxy(DWORD target_pid);
 
-	class injector
+	class loader
 	{
 		STARTUPINFOA si_{};
 		PROCESS_INFORMATION pi_{};
-		BYTE* buf_;
-		SIZE_T buf_size_;
-		std::vector<BYTE> payload_loaded_;
-
-		static std::vector<BYTE> load_payload_from_file(const std::string& file);
+		const std::wstring& dll_path_;
 
 	public:
-		template <SIZE_T N>
-		explicit injector(BYTE(&data)[N])
-			: buf_(data), buf_size_(N)
+		explicit loader(std::wstring& dll_path)
+			: dll_path_(dll_path)
 		{
 		}
-		explicit injector(const std::string& file)
-		{
-			payload_loaded_ = load_payload_from_file(file);
 
-			if (payload_loaded_.empty())
-			{
-				buf_ = nullptr;
-				buf_size_ = 0;
-				std::println("[-] Failed to load payload from file: {}", file);
-			}
-			else
-			{
-				buf_ = payload_loaded_.data();
-				buf_size_ = payload_loaded_.size();
-			}
-		}
+		~loader();
 
-		~injector();
-
-		enum retrieve_handle_method : uint8_t
-		{
-			open_handle,
-			hijack_handle
-		};
-
-		bool create_process(const LPCSTR& benign_dll, bool create_suspended = false);
-		bool attach_to_process(DWORD pid, retrieve_handle_method handle_method = hijack_handle);
-		bool attach_to_process_by_name(const std::wstring& process_name, retrieve_handle_method handle_method = hijack_handle);
-		[[nodiscard]] bool inject(const std::wstring& benign_dll) const;
+		[[nodiscard]] PROCESS_INFORMATION get_process_info() const { return pi_; }
+		bool create_process(const LPCSTR& process_path, bool create_suspended = false);
+		bool attach_to_process(DWORD pid);
+		bool attach_to_process_by_name(const std::wstring& process_name);
+		bool find_process_to_proxy() const;
+		[[nodiscard]] bool inject(const std::wstring& dll_path) const;
 	};
 }
