@@ -1,7 +1,7 @@
 # Vendetta
 **Advanced Threadless Phantom DLL Injector**
 
-Vendetta is a proof-of-concept User-Mode injector that utilizes **Transacted Section Hollowing** ("Phantom DLL") combined with syscalls to achieve stealth-optimized injection.
+Vendetta is a proof-of-concept User-Mode injector that utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection.
 
 Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_PRIVATE` allocations for the payload. It leverages **Special User APCs** for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
 
