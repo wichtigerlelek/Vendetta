@@ -139,7 +139,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\vendetta\signatures.h" />
-    <ClInclude Include="src\payload.h" />
     <ClInclude Include="phnt\ntafd.h" />
     <ClInclude Include="phnt\ntbcd.h" />
     <ClInclude Include="phnt\ntdbg.h" />
