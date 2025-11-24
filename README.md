@@ -15,10 +15,12 @@ Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_
 
 ```console
 # Target by Process ID
-vendetta.exe -p <PID> <payload_path>
+vendetta.exe -p <PID> <path to benign dll>
+```
 
+```console
 # Target by Process Name
-vendetta.exe -n <process_name> <payload_path>
+vendetta.exe -n <process exe name> <path to benign dll>
 ```
 
 ## Included Test Payloads
