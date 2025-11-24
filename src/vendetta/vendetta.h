@@ -49,7 +49,7 @@ namespace vendetta
 		PROCESS_INFORMATION pi_{};
 		BYTE* buf_;
 		SIZE_T buf_size_;
-		std::vector<BYTE> payload_owner_;
+		std::vector<BYTE> payload_loaded_;
 
 		static std::vector<BYTE> load_payload_from_file(const std::string& file);
 
@@ -61,10 +61,9 @@ namespace vendetta
 		}
 		explicit injector(const std::string& file)
 		{
-			// Load into the class member directly
-			payload_owner_ = load_payload_from_file(file);
+			payload_loaded_ = load_payload_from_file(file);
 
-			if (payload_owner_.empty())
+			if (payload_loaded_.empty())
 			{
 				buf_ = nullptr;
 				buf_size_ = 0;
@@ -72,9 +71,8 @@ namespace vendetta
 			}
 			else
 			{
-				// Now buf_ points to memory that persists as long as the class exists
-				buf_ = payload_owner_.data();
-				buf_size_ = payload_owner_.size();
+				buf_ = payload_loaded_.data();
+				buf_size_ = payload_loaded_.size();
 			}
 		}
 
