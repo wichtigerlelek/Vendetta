@@ -19,3 +19,19 @@ vendetta.exe -p <PID> <payload_path>
 
 # Target by Process Name
 vendetta.exe -n <process_name> <payload_path>
+```
+
+## Included Test Payloads
+The repository includes two pre-compiled x64 payloads for testing purposes. Both execute a standard "Hello World" message box:
+1. shellc_hello.bin: Standard Metasploit-generated shellcode.
+2. buf.bin: A PE file converted to shellcode using Donut.
+
+## Roadmap
+- [x] Phantom DLL Linking: Successfully link transacted sections to the PEB (Lists, Hash Table, & RB-Tree).
+- [ ] Handle Hijacking: Implement handle duplication to avoid OpenProcess and bypass ObRegisterCallbacks.
+- [ ] Memory-Only Loading: Support loading DLLs directly from memory buffers (avoiding disk I/O entirely).
+- [ ] Header Scrubbing: Zero out DOS/NT headers in the remote process to remove artifacts.
+- [ ] Call Stack Spoofing: Obfuscate the return address of the APC execution to hide the injection origin.
+
+## Disclaimer
+This project is for educational and research purposes only. I am not responsible for any misuse of this software.
