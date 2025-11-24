@@ -30,8 +30,8 @@ The repository includes two pre-compiled x64 payloads for testing purposes. Both
 - [x] Phantom DLL Linking: Successfully link transacted sections to the PEB (Lists, Hash Table, & RB-Tree).
 - [ ] Handle Hijacking: Implement handle duplication to avoid OpenProcess and bypass ObRegisterCallbacks.
 - [ ] Memory-Only Loading: Support loading DLLs directly from memory buffers (avoiding disk I/O entirely).
-- [ ] Header Scrubbing: Zero out DOS/NT headers in the remote process to remove artifacts.
-- [ ] Call Stack Spoofing: Obfuscate the return address of the APC execution to hide the injection origin.
+- [ ] Header Stomping or changing it with ntdll header (optional experiment).
+- [ ] Call Stack Spoofing (optional).
 
 ## Disclaimer
 This project is for educational and research purposes only. I am not responsible for any misuse of this software.
