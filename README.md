@@ -16,7 +16,9 @@ Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_
 ```console
 # Target by Process ID
 vendetta.exe -p <PID> <payload_path>
+```
 
+```console
 # Target by Process Name
 vendetta.exe -n <process_name> <payload_path>
 ```
