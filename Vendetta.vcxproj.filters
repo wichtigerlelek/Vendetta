@@ -18,7 +18,7 @@
     <ClInclude Include="src\payload.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\vendetta.h">
+    <ClInclude Include="src\vendetta\vendetta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="syswhispers\syswhispers.h">
@@ -147,10 +147,7 @@
     <ClInclude Include="phnt\winsta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\pattern_scanner\signatures.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\pattern_scanner\voidstare.hpp">
+    <ClInclude Include="src\vendetta\signatures.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -159,6 +156,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="syswhispers\syswhispers.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vendetta\vendetta.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

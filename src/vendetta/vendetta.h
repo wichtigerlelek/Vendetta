@@ -1,4 +1,11 @@
 #pragma once
+#include <print>
+#include <vector>
+#include <syswhispers.h>
+#include <TlHelp32.h>
+#include <sstream>
+
+
 namespace vendetta
 {
 	bool inject_phantom_dll(const PROCESS_INFORMATION& pi, const BYTE* buf, SIZE_T buf_size, const std::wstring& legitimate_dll_path);
@@ -20,7 +27,7 @@ namespace vendetta
 		~injector();
 
 		bool create_dummy_process(bool create_suspended = false);
-		bool attach_to_process(const DWORD pid);
+		bool attach_to_process(DWORD pid);
 		bool attach_to_process_by_name(const std::wstring& process_name);
 		bool inject(const std::wstring& benign_dll) const;
 	};

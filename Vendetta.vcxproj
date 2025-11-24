@@ -138,8 +138,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\pattern_scanner\signatures.h" />
-    <ClInclude Include="src\pattern_scanner\voidstare.hpp" />
+    <ClInclude Include="src\vendetta\signatures.h" />
     <ClInclude Include="src\payload.h" />
     <ClInclude Include="phnt\ntafd.h" />
     <ClInclude Include="phnt\ntbcd.h" />
@@ -183,10 +182,11 @@
     <ClInclude Include="phnt\usermgr.h" />
     <ClInclude Include="phnt\winsta.h" />
     <ClInclude Include="syswhispers\syswhispers.h" />
-    <ClInclude Include="src\vendetta.h" />
+    <ClInclude Include="src\vendetta\vendetta.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\vendetta\vendetta.cpp" />
     <ClCompile Include="syswhispers\syswhispers.c" />
   </ItemGroup>
   <ItemGroup>
