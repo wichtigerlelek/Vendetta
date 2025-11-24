@@ -31,7 +31,7 @@ The repository includes two pre-compiled x64 payloads for testing purposes. Both
 ## Roadmap
 - [x] Phantom DLL Linking: Successfully link transacted sections to the PEB (Lists, Hash Table, & RB-Tree).
 - [x] Handle Hijacking: Implement handle duplication to bypass permission checks.
-- [ ] Proxy Injection: Convert the loader to shellcode, inject into discord or other whitelisted processes and writeprocessmemory from proxy
+- [ ] Proxy Injection: Convert the loader to a dll, inject into whitelisted processes to use that process's handle
 - [ ] Memory-Only Loading: Support loading DLLs directly from memory buffers (avoiding disk I/O entirely).
 - [ ] Header Stomping or changing it with ntdll header (optional experiment).
 - [ ] Call Stack Spoofing (optional).
