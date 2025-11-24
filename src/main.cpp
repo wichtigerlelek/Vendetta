@@ -5,12 +5,33 @@
 
 int main(int argc, char** argv)
 {
+	if (argc == 1)
+	{
+		std::println("Creating dummy for testing purposes...");
+		vendetta::injector inj(shellc_hello);
+		if (!inj.create_process(R"(.\dummy\dummy.exe)", false))
+		{
+			std::println("[-] Failed to launch dummy.exe.");
+			return 1;
+		}
+		Sleep(1000);
+		if (!inj.inject(LR"(.\dummy\amsi.dll)"))
+		{
+			std::println("[-] Injection failed.");
+			return 1;
+		}
+
+		std::println("[+] Injection completed successfully.");
+		return 0;
+	}
+
 	if (argc != 4)
 	{
 		std::println("Usage: vendetta.exe -pid <pid> <dll path>");
 		std::println("       vendetta.exe -proc <process name> <dll path>");
 		return 1;
 	}
+
 
 	{
 		std::println(

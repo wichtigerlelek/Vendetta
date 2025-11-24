@@ -6,17 +6,10 @@
 #ifndef SW3_HEADER_H_
 #define SW3_HEADER_H_
 
-#include <windows.h>
-
 #include <phnt_windows.h>
 #include <phnt.h>
 
-#ifndef _NTDEF_
-typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
-typedef NTSTATUS* PNTSTATUS;
-#endif
-
-#define SW3_SEED 0x53D5581E
+#define SW3_SEED 0x9ECA3FB9
 #define SW3_ROL8(v) (v << 8 | v >> 24)
 #define SW3_ROR8(v) (v >> 8 | v << 24)
 #define SW3_ROX8(v) ((SW3_SEED % 2) ? SW3_ROL8(v) : SW3_ROR8(v))
@@ -327,5 +320,14 @@ EXTERN_C NTSTATUS Sw3NtWriteFile(
 EXTERN_C NTSTATUS Sw3NtRollbackTransaction(
 	IN HANDLE TransactionHandle,
 	IN BOOLEAN Wait);
+
+EXTERN_C NTSTATUS Sw3NtDuplicateObject(
+	IN HANDLE SourceProcessHandle,
+	IN HANDLE SourceHandle,
+	IN HANDLE TargetProcessHandle OPTIONAL,
+	OUT PHANDLE TargetHandle OPTIONAL,
+	IN ACCESS_MASK DesiredAccess,
+	IN ULONG HandleAttributes,
+	IN ULONG Options);
 
 #endif
