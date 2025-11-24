@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 			return 1;
 		}
 		Sleep(1000);
-		if (!inj.inject(LR"(.\dummy\amsi.dll)"))
+		if (!inj.inject(LR"(.\dummy\GameOverlayRenderer64.dll)"))
 		{
 			std::println("[-] Injection failed.");
 			return 1;
@@ -25,13 +25,19 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	if (argc != 4)
+	if (argc < 4)
 	{
-		std::println("Usage: vendetta.exe -pid <pid> <dll path>");
-		std::println("       vendetta.exe -proc <process name> <dll path>");
+		std::println("Usage: vendetta.exe (-pid <pid> | -proc <process name>) <dll path> [-m (open_handle|hijack_handle)]");
+		std::println("");
+		std::println("Examples:");
+		std::println(R"(  vendetta.exe -pid 1234 C:\path\to\dll.dll)");
+		std::println(R"(  vendetta.exe -proc notepad.exe C:\path\to\dll.dll)");
+		std::println(
+			R"(  vendetta.exe -pid 1234 C:\path\to\dll.dll -m open_handle)");
+		std::println(
+			R"(  vendetta.exe -m hijack_handle -proc notepad.exe C:\path\to\dll.dll)");
 		return 1;
 	}
-
 
 	{
 		std::println(
@@ -47,12 +53,69 @@ int main(int argc, char** argv)
         '------------------------------------'          )");
 	}
 
-	const std::string option(argv[1]);
-	std::string target(argv[2]);
+	std::string option;
+	std::string target;
+	std::wstring dll_path;
+	vendetta::injector::retrieve_handle_method handle_method = vendetta::injector::hijack_handle;
 
-	std::string dll_path_str = argv[3];
-	const auto dll_path = std::wstring(dll_path_str.begin(),
-	                                     dll_path_str.end());
+	bool has_option = false;
+	bool has_target = false;
+	bool has_dll = false;
+
+	for (int i = 1; i < argc; i++)
+	{
+		std::string arg(argv[i]);
+
+		if (arg == "-pid" || arg == "-proc")
+		{
+			if (i + 1 >= argc)
+			{
+				std::println("[-] {} requires an argument.", arg);
+				return 1;
+			}
+			option = arg;
+			target = argv[++i];
+			has_option = true;
+			has_target = true;
+		}
+		else if (arg == "-m")
+		{
+			if (i + 1 >= argc)
+			{
+				std::println("[-] -m requires an argument (open_handle or hijack_handle).");
+				return 1;
+			}
+			std::string method(argv[++i]);
+			if (method == "open_handle")
+			{
+				handle_method = vendetta::injector::open_handle;
+			}
+			else if (method == "hijack_handle")
+			{
+				handle_method = vendetta::injector::hijack_handle;
+			}
+			else
+			{
+				std::println("[-] Invalid handle method '{}'. Use 'open_handle' or 'hijack_handle'.", method);
+				return 1;
+			}
+		}
+		else if (!has_dll && arg[0] != '-')
+		{
+			if (has_option && has_target)
+			{
+				dll_path = std::wstring(arg.begin(), arg.end());
+				has_dll = true;
+			}
+		}
+	}
+
+	if (!has_option || !has_target || !has_dll)
+	{
+		std::println("[-] Missing required arguments.");
+		std::println("Usage: vendetta.exe (-pid <pid> | -proc <process name>) <dll path> [-m (open_handle|hijack_handle)]");
+		return 1;
+	}
 
 	vendetta::injector inj(shellc_hello);
 
@@ -69,7 +132,7 @@ int main(int argc, char** argv)
 			return 1;
 		}
 
-		if (!inj.attach_to_process(pid))
+		if (!inj.attach_to_process(pid, handle_method))
 		{
 			std::println("[-] Failed to attach to process by PID.");
 			return 1;
@@ -79,7 +142,7 @@ int main(int argc, char** argv)
 	{
 		std::wstring process_name(target.begin(), target.end());
 
-		if (!inj.attach_to_process_by_name(process_name))
+		if (!inj.attach_to_process_by_name(process_name, handle_method))
 		{
 			std::println("[-] Failed to attach to process by name.");
 			return 1;

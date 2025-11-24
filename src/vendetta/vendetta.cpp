@@ -62,26 +62,27 @@ namespace vendetta
 			return {};
 		}
 
-		bool EnableDebugPrivilege() {
+		bool SetPrivilege(const char* szPrivilege, bool bState = true) {
 			HANDLE hToken;
 			if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
 				return false;
 
-			LUID luid;
-			if (!LookupPrivilegeValueW(nullptr, L"SeDebugPrivilege", &luid)) {
+			TOKEN_PRIVILEGES TokenPrivileges = { 0 };
+			TokenPrivileges.PrivilegeCount = 1;
+			TokenPrivileges.Privileges[0].Attributes = bState ? SE_PRIVILEGE_ENABLED : 0;
+
+			if (!LookupPrivilegeValueA(nullptr, szPrivilege, &TokenPrivileges.Privileges[0].Luid))
+			{
 				CloseHandle(hToken);
 				return false;
 			}
 
-			TOKEN_PRIVILEGES tp;
-			tp.PrivilegeCount = 1;
-			tp.Privileges[0].Luid = luid;
-			tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-			if (!AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr)) {
+			if (!AdjustTokenPrivileges(hToken, FALSE, &TokenPrivileges, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr))
+			{
 				CloseHandle(hToken);
 				return false;
 			}
+
 
 			CloseHandle(hToken);
 			return (GetLastError() == ERROR_SUCCESS);
@@ -231,6 +232,7 @@ namespace vendetta
 					break;
 				}
 			} while (Thread32Next(h_snap, &te32));
+			CloseHandle(h_snap);
 			if (h_thread_hijacked == INVALID_HANDLE_VALUE)
 			{
 				std::println(
@@ -550,8 +552,8 @@ namespace vendetta
 		std::println("[+] Section created and mapped to the target process.");
 
 		Sw3NtClose(hSection);
-		CloseHandle(hTransactedFile); // Close Win32 handle with CloseHandle
-		// Using Native Rollback
+		CloseHandle(hTransactedFile);
+		
 		status = Sw3NtRollbackTransaction(hTransaction, TRUE);
 		if (!NT_SUCCESS(status))
 		{
@@ -559,7 +561,7 @@ namespace vendetta
 				"[-] Sw3NtRollbackTransaction failed (Warning): {:x}",
 				status);
 		}
-		Sw3NtClose(hTransaction); // Close Native handle with Sw3NtClose
+		Sw3NtClose(hTransaction);
 		std::println("[+] Transaction rolled back successfully.");
 
 		std::println("[+] Mapped Base Address: {}", remoteBase);
@@ -595,7 +597,7 @@ namespace vendetta
 
 	HANDLE hijack_process_handle(const DWORD target_pid)
 	{
-		if (!EnableDebugPrivilege()) {
+		if (!SetPrivilege("SeDebugPrivilege")) {
 			std::println("[-] Failed to grant SeDebug. Handle hijacking will not be available.");
 			return INVALID_HANDLE_VALUE;
 		}
@@ -710,6 +712,10 @@ namespace vendetta
 		{
 		case hijack_handle:
 			pi_.hProcess = hijack_process_handle(pid);
+			if (pi_.hProcess == INVALID_HANDLE_VALUE || pi_.hProcess == nullptr) {
+				std::println("[-] Handle hijacking failed. Aborting.");
+				return false;
+			}
 			break;
 		case open_handle:
 			CLIENT_ID client_id;
@@ -779,7 +785,9 @@ namespace vendetta
 			return false;
 		}
 
-		attach_to_process(pe32.th32ProcessID, handle_method);
+		if (!attach_to_process(pe32.th32ProcessID, handle_method))
+			return false;
+		
 		std::println("[+] Attached to {}. PID = {}.", process_name_str,
 			pe32.th32ProcessID);
 
