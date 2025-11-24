@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Vendetta/Vendetta.vcxproj" />
+  <Project Path="Vendetta/Vendetta.vcxproj" Id="eece1d9a-89c5-4bc5-9bec-0d9c99b0bf28" />
 </Solution>

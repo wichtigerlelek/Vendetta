@@ -165,7 +165,7 @@ namespace vendetta
 			local_entry.TlsIndex = 0;
 			local_entry.ObsoleteLoadCount = 0xFFFF;
 			local_entry.ReferenceCount = 0xFFFFFFFF;
-			local_entry.Flags = 0x00084004;
+			local_entry.Flags = LDRP_DONT_CALL_FOR_THREADS; // default flag is shit because loader executes the dll "randomly"
 
 			local_entry.BaseDllName.Length = static_cast<USHORT>(base_name_size
 				- sizeof(wchar_t));
@@ -426,6 +426,13 @@ namespace vendetta
 			return false;
 		}
 
+		// execute via apc instant
+		if (!execute_hijack_thread_apc_instant(pi, static_cast<PPS_APC_ROUTINE>(executionAddress)))
+		{
+			std::println("[-] Failed execute the entrypoint via APC.");
+			return false;
+		}
+
 		return true;
 	}
 
@@ -456,6 +463,8 @@ namespace vendetta
 
 	bool injector::attach_to_process(const DWORD pid)
 	{
+		pi_.dwProcessId = pid;
+
 		CLIENT_ID client_id;
 		client_id.UniqueProcess = UlongToHandle(pi_.dwProcessId);
 		client_id.UniqueThread = nullptr;
@@ -565,7 +574,7 @@ int main(int argc, char** argv)
 	std::string target(argv[2]);
 
 	std::string dll_path_str = argv[3];
-	const std::wstring dll_path = std::wstring(dll_path_str.begin(),
+	const auto dll_path = std::wstring(dll_path_str.begin(),
 	                                     dll_path_str.end());
 
 	vendetta::injector inj(shellc_hello);
@@ -611,6 +620,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	std::println("[+] Done.");
+	std::println("[+] Injection completed successfully.");
 	return 0;
 }
