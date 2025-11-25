@@ -145,16 +145,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\vendetta\signatures.h" />
-    <ClInclude Include="src\vendetta\vendetta.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\Shared\syswhispers\syswhispers.c" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\vendetta\vendetta.cpp" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="..\Shared\syswhispers\syswhispers-asm.x64.asm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\logger.h" />
+    <ClInclude Include="src\vendetta\vendetta.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

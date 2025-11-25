@@ -3,7 +3,7 @@
 
 //#define DEBUG
 
-#define JUMPER
+// JUMPER
 
 #ifdef _M_IX86
 

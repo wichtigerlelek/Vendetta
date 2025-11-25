@@ -6,10 +6,15 @@
 #ifndef SW3_HEADER_H_
 #define SW3_HEADER_H_
 
-#include "phnt_windows.h"
-#include "phnt.h"
+#include <phnt_windows.h>
+#include <phnt.h>
 
-#define SW3_SEED 0x9ECA3FB9
+#ifndef _NTDEF_
+typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
+typedef NTSTATUS* PNTSTATUS;
+#endif
+
+#define SW3_SEED 0x7A43FF78
 #define SW3_ROL8(v) (v << 8 | v >> 24)
 #define SW3_ROR8(v) (v >> 8 | v << 24)
 #define SW3_ROX8(v) ((SW3_SEED % 2) ? SW3_ROL8(v) : SW3_ROR8(v))
@@ -329,5 +334,10 @@ EXTERN_C NTSTATUS Sw3NtDuplicateObject(
 	IN ACCESS_MASK DesiredAccess,
 	IN ULONG HandleAttributes,
 	IN ULONG Options);
+
+EXTERN_C NTSTATUS Sw3NtWaitForSingleObject(
+	IN HANDLE ObjectHandle,
+	IN BOOLEAN Alertable,
+	IN PLARGE_INTEGER TimeOut OPTIONAL);
 
 #endif
