@@ -24,6 +24,7 @@
     <ProjectGuid>{eece1d9a-89c5-4bc5-9bec-0d9c99b0bf28}</ProjectGuid>
     <RootNamespace>Vendetta</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>VendettaCore</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -40,13 +41,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -114,12 +115,14 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)phnt\;$(ProjectDir)syswhispers\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared\syswhispers</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -131,67 +134,27 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)phnt\;$(ProjectDir)syswhispers\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared\syswhispers</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\vendetta\signatures.h" />
-    <ClInclude Include="phnt\ntafd.h" />
-    <ClInclude Include="phnt\ntbcd.h" />
-    <ClInclude Include="phnt\ntdbg.h" />
-    <ClInclude Include="phnt\ntexapi.h" />
-    <ClInclude Include="phnt\ntgdi.h" />
-    <ClInclude Include="phnt\ntimage.h" />
-    <ClInclude Include="phnt\ntintsafe.h" />
-    <ClInclude Include="phnt\ntioapi.h" />
-    <ClInclude Include="phnt\ntkeapi.h" />
-    <ClInclude Include="phnt\ntldr.h" />
-    <ClInclude Include="phnt\ntlpcapi.h" />
-    <ClInclude Include="phnt\ntmisc.h" />
-    <ClInclude Include="phnt\ntmmapi.h" />
-    <ClInclude Include="phnt\ntnls.h" />
-    <ClInclude Include="phnt\ntobapi.h" />
-    <ClInclude Include="phnt\ntpebteb.h" />
-    <ClInclude Include="phnt\ntpfapi.h" />
-    <ClInclude Include="phnt\ntpnpapi.h" />
-    <ClInclude Include="phnt\ntpoapi.h" />
-    <ClInclude Include="phnt\ntpsapi.h" />
-    <ClInclude Include="phnt\ntregapi.h" />
-    <ClInclude Include="phnt\ntrtl.h" />
-    <ClInclude Include="phnt\ntsam.h" />
-    <ClInclude Include="phnt\ntseapi.h" />
-    <ClInclude Include="phnt\ntsmss.h" />
-    <ClInclude Include="phnt\ntstrsafe.h" />
-    <ClInclude Include="phnt\ntsxs.h" />
-    <ClInclude Include="phnt\nttmapi.h" />
-    <ClInclude Include="phnt\nttp.h" />
-    <ClInclude Include="phnt\ntuser.h" />
-    <ClInclude Include="phnt\ntwmi.h" />
-    <ClInclude Include="phnt\ntwow64.h" />
-    <ClInclude Include="phnt\ntxcapi.h" />
-    <ClInclude Include="phnt\ntzwapi.h" />
-    <ClInclude Include="phnt\phnt.h" />
-    <ClInclude Include="phnt\phnt_ntdef.h" />
-    <ClInclude Include="phnt\phnt_windows.h" />
-    <ClInclude Include="phnt\smbios.h" />
-    <ClInclude Include="phnt\subprocesstag.h" />
-    <ClInclude Include="phnt\usermgr.h" />
-    <ClInclude Include="phnt\winsta.h" />
-    <ClInclude Include="syswhispers\syswhispers.h" />
     <ClInclude Include="src\vendetta\vendetta.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="..\Shared\syswhispers\syswhispers.c" />
+    <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\vendetta\vendetta.cpp" />
-    <ClCompile Include="syswhispers\syswhispers.c" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="syswhispers\syswhispers-asm.x64.asm" />
+    <MASM Include="..\Shared\syswhispers\syswhispers-asm.x64.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -6,8 +6,8 @@
 #ifndef SW3_HEADER_H_
 #define SW3_HEADER_H_
 
-#include <phnt_windows.h>
-#include <phnt.h>
+#include "phnt_windows.h"
+#include "phnt.h"
 
 #define SW3_SEED 0x9ECA3FB9
 #define SW3_ROL8(v) (v << 8 | v >> 24)

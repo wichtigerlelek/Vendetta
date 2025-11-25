@@ -3,5 +3,55 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Vendetta.vcxproj" Id="eece1d9a-89c5-4bc5-9bec-0d9c99b0bf28" />
+  <Folder Name="/Shared/" />
+  <Folder Name="/Shared/phnt/">
+    <File Path="Shared/phnt/ntafd.h" />
+    <File Path="Shared/phnt/ntbcd.h" />
+    <File Path="Shared/phnt/ntdbg.h" />
+    <File Path="Shared/phnt/ntexapi.h" />
+    <File Path="Shared/phnt/ntgdi.h" />
+    <File Path="Shared/phnt/ntimage.h" />
+    <File Path="Shared/phnt/ntintsafe.h" />
+    <File Path="Shared/phnt/ntioapi.h" />
+    <File Path="Shared/phnt/ntkeapi.h" />
+    <File Path="Shared/phnt/ntldr.h" />
+    <File Path="Shared/phnt/ntlpcapi.h" />
+    <File Path="Shared/phnt/ntmisc.h" />
+    <File Path="Shared/phnt/ntmmapi.h" />
+    <File Path="Shared/phnt/ntnls.h" />
+    <File Path="Shared/phnt/ntobapi.h" />
+    <File Path="Shared/phnt/ntpebteb.h" />
+    <File Path="Shared/phnt/ntpfapi.h" />
+    <File Path="Shared/phnt/ntpnpapi.h" />
+    <File Path="Shared/phnt/ntpoapi.h" />
+    <File Path="Shared/phnt/ntpsapi.h" />
+    <File Path="Shared/phnt/ntregapi.h" />
+    <File Path="Shared/phnt/ntrtl.h" />
+    <File Path="Shared/phnt/ntsam.h" />
+    <File Path="Shared/phnt/ntseapi.h" />
+    <File Path="Shared/phnt/ntsmss.h" />
+    <File Path="Shared/phnt/ntstrsafe.h" />
+    <File Path="Shared/phnt/ntsxs.h" />
+    <File Path="Shared/phnt/nttmapi.h" />
+    <File Path="Shared/phnt/nttp.h" />
+    <File Path="Shared/phnt/ntuser.h" />
+    <File Path="Shared/phnt/ntwmi.h" />
+    <File Path="Shared/phnt/ntwow64.h" />
+    <File Path="Shared/phnt/ntxcapi.h" />
+    <File Path="Shared/phnt/ntzwapi.h" />
+    <File Path="Shared/phnt/phnt.h" />
+    <File Path="Shared/phnt/phnt_ntdef.h" />
+    <File Path="Shared/phnt/phnt_windows.h" />
+    <File Path="Shared/phnt/smbios.h" />
+    <File Path="Shared/phnt/subprocesstag.h" />
+    <File Path="Shared/phnt/usermgr.h" />
+    <File Path="Shared/phnt/winsta.h" />
+  </Folder>
+  <Folder Name="/Shared/syswhispers/">
+    <File Path="Shared/syswhispers/syswhispers-asm.x64.asm" />
+    <File Path="Shared/syswhispers/syswhispers.c" />
+    <File Path="Shared/syswhispers/syswhispers.h" />
+  </Folder>
+  <Project Path="VendettaCore/VendettaCore.vcxproj" Id="eece1d9a-89c5-4bc5-9bec-0d9c99b0bf28" />
+  <Project Path="VendettaStager/VendettaStager.vcxproj" Id="0cef038c-3468-419e-872f-84ea47e22e10" />
 </Solution>
