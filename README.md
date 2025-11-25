@@ -1,6 +1,7 @@
 # Vendetta
 **Advanced Threadless Phantom DLL Injector (Proxy version)**
-This is the proxy version of vendetta. It injects itself into a third process and does the shellcode injection from that second process. It consists of a Stager (Injects the core into a third process) and the Core (Dll with the same logic of the master-branch just as a Dll).
+
+This is the proxy version of vendetta. It injects itself into a third process and does the shellcode injection from that second process. It consists of a Stager (Injects the core into a third process) and the Core (Dll with the logic from the master-branch).
 
 ## Key Features
 * **Proxy Injection:** Uses a third process to avoid creating a new handle. Reuses an existing one.
