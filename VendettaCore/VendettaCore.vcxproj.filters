@@ -21,7 +21,7 @@
     <ClCompile Include="..\Shared\syswhispers\syswhispers.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\vendetta\vendetta.cpp">
+    <ClCompile Include="..\Shared\vendetta\vendetta.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -32,9 +32,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\vendetta\vendetta.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

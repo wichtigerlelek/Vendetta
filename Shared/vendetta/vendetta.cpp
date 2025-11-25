@@ -1,5 +1,11 @@
-#include "vendetta.h"
-#include "../logger.h"
+#include "vendetta/vendetta.h"
+#include "vendetta/debug_logger.h"
+
+#include <ntpsapi.h>
+#include <ntldr.h>
+#include <ntioapi.h>
+#include <phnt_ntdef.h>
+#include <ntmmapi.h>
 
 namespace Vendetta
 {
@@ -7,7 +13,6 @@ namespace Vendetta
 	{
 		const Pattern PATTERN_LDRP_INSERT_DATA_TABLE_ENTRY("40 53 48 83 EC ? F6 41 ? ? 48 8B D9 75", "LdrpInsertDataTableEntry");
 	}
-    
 
 	DWORD FindProcessId(const std::wstring& processName)
 	{
@@ -36,44 +41,89 @@ namespace Vendetta
 		return pId;
 	}
 
+    std::vector<uint8_t> GetSystemInfoClass(SYSTEM_INFORMATION_CLASS infoClass)
+    {
+        ULONG bufferSize = 0x1000;
+        ULONG expectedSize = 0;
+        std::vector<uint8_t> buffer;
+        NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
+        do
+        {
+            buffer.resize(bufferSize);
+            if (status = Sw3NtQuerySystemInformation(infoClass, buffer.data(), bufferSize, &expectedSize); NT_SUCCESS(status))
+                break;
+            if (expectedSize > bufferSize)
+                bufferSize = expectedSize + 0x1000;
+            Log(LogInfo, "Resizing SystemInformation buffer to {:d}kb", bufferSize / 1024);
+        } while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+        return buffer;
+    }
+
+    PVOID GetProcessObject(const DWORD targetPid)
+    {
+        const HANDLE hLocalHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, targetPid);
+        if (!hLocalHandle)
+        {
+            Log(LogError, "Could not open target process to get anchor handle.");
+            return nullptr;
+        }
+
+        auto handleBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
+        const auto pHandleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(handleBuffer.data());
+        PVOID targetObjectAddress = nullptr;
+        const DWORD myPid = GetCurrentProcessId();
+
+        for (ULONG_PTR i = 0; i < pHandleInfo->NumberOfHandles; i++)
+        {
+            const auto& entry = pHandleInfo->Handles[i];
+
+            if (entry.UniqueProcessId == reinterpret_cast<HANDLE>(myPid) && entry.HandleValue == hLocalHandle)
+            {
+                targetObjectAddress = entry.Object;
+                break;
+            }
+        }
+
+        if (!targetObjectAddress)
+        {
+            Log(LogError, "Failed to resolve target Kernel Object Address.");
+            CloseHandle(hLocalHandle);
+            return nullptr;
+        }
+        return targetObjectAddress;
+    }
+
 	HANDLE FindProcessHandleInternal(const DWORD& targetPid)
 	{
+        PVOID processTypeIndex = GetProcessObject(targetPid);
+		auto systemInfoBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
+		const auto handleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(systemInfoBuffer.data());
 
-		auto hFound = INVALID_HANDLE_VALUE;
+        HANDLE hFound = INVALID_HANDLE_VALUE;
+        DWORD myPid = GetCurrentProcessId();
 
-		constexpr ULONG bufferSize = 0x1000;
-		PPROCESS_HANDLE_SNAPSHOT_INFORMATION processInfo = nullptr;
+        for (ULONG_PTR i = 0; i < handleInfo->NumberOfHandles; i++) {
+            auto& entry = handleInfo->Handles[i];
 
-		processInfo = static_cast<PPROCESS_HANDLE_SNAPSHOT_INFORMATION>(VirtualAlloc(
-			nullptr, bufferSize,
-			MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-		const NTSTATUS status = Sw3NtQueryInformationProcess(
-			GetCurrentProcess(),
-			ProcessHandleInformation,
-			processInfo,
-			bufferSize,
-			nullptr);
-		if (status == STATUS_BUFFER_TOO_SMALL)
-		{
-			VirtualFree(processInfo, 0, MEM_RELEASE);
-			Log(LogError, "Buffer too small");
-			return hFound;
-		}
+            if (entry.UniqueProcessId != UlongToHandle(myPid)) continue;
 
-		constexpr ACCESS_MASK requiredAccess = PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION;
-		for (ULONG_PTR i = 0; i < processInfo->NumberOfHandles; i++) {
-			const auto& entry = processInfo->Handles[i];
+			if (entry.Object != processTypeIndex) continue;
 
-			if ((entry.GrantedAccess & requiredAccess) == 0) continue;
+            const ACCESS_MASK needed = PROCESS_VM_WRITE | PROCESS_VM_OPERATION;
+            if ((entry.GrantedAccess & needed) != needed) continue;
 
-			if (const HANDLE hCandidate = entry.HandleValue; GetProcessId(hCandidate) == targetPid) {
-				hFound = hCandidate;
-				break;
-			}
-		}
+            HANDLE hCandidate = entry.HandleValue;
 
-		VirtualFree(processInfo, 0, MEM_RELEASE);
-		return hFound;
+            if (GetProcessId(hCandidate) == targetPid) {
+                hFound = hCandidate;
+                Log(LogInfo, "Found internal handle: {:p} (Access: {:x})", hFound, static_cast<unsigned int>(entry.GrantedAccess));
+                break;
+            }
+        }
+
+        VirtualFree(handleInfo, 0, MEM_RELEASE);
+        return hFound;
 	}
 
     MODULEENTRY32W GetModuleEntry32W(const wchar_t* moduleName, const PROCESS_INFORMATION& pi)

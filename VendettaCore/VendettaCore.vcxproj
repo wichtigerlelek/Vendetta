@@ -115,8 +115,8 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared\syswhispers</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,7 +134,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared\syswhispers</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Shared\phnt;$(SolutionDir)Shared</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -146,14 +146,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\Shared\syswhispers\syswhispers.c" />
+    <ClCompile Include="..\Shared\vendetta\vendetta.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
-    <ClCompile Include="src\vendetta\vendetta.cpp" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="..\Shared\syswhispers\syswhispers-asm.x64.asm" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\logger.h" />
     <ClInclude Include="src\vendetta\vendetta.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

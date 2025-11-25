@@ -1,8 +1,7 @@
-﻿#include "logger.h"
+﻿#include "vendetta/debug_logger.h"
 #include "vendetta/vendetta.h"
 
-// Comment out for release
-constexpr bool TESTING = true;
+#include "config.h"
 
 static unsigned char buf[320] = {
 	0xFC, 0x48, 0x81, 0xE4, 0xF0, 0xFF, 0xFF, 0xFF, 0xE8, 0xCC, 0x00, 0x00,
@@ -38,9 +37,8 @@ namespace
 {
 	int ProxyThread()
 	{
-		std::wstring dll_path =
-			LR"(C:\Users\felix\Documents\Projects\Vendetta\dummy\GameOverlayRenderer64.dll)";
-		DWORD pId = Vendetta::FindProcessId(L"dummy.exe");
+		std::wstring dll_path = BENIGN_DLL;
+		DWORD pId = Vendetta::FindProcessId(TARGET);
 		if (pId == 0)
 		{
 			Log(LogError, "Target not found");
@@ -50,18 +48,9 @@ namespace
 		HANDLE hProcess = Vendetta::FindProcessHandleInternal(pId);
 		if (hProcess == INVALID_HANDLE_VALUE)
 		{
-			if constexpr (TESTING)
-			{
-				Log(LogWarnTest, "Opening a new handle with all access");
-				hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pId);
-			}
-			else
-			{
-				Log(LogError, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, maybe the proxy does not have PROCESS_QUERY_INFORMATION access?");
-				return 1;
-			}
+			Log(LogError, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, maybe the proxy does not have PROCESS_QUERY_INFORMATION access?");
+			return 1;
 		}
-		Log(LogInfo, "Found internal handle: {:p}", hProcess);
 
 		PROCESS_INFORMATION pi;
 		pi.hProcess = hProcess;
@@ -89,10 +78,6 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		AllocConsole();
-		freopen_s(&pFile, "CONOUT$", "w", stdout);
-		freopen_s(&pFile, "CONOUT$", "w", stderr);
-
 		CreateThread(nullptr, 0,
 		             reinterpret_cast<LPTHREAD_START_ROUTINE>(ProxyThread),
 		             nullptr, 0, nullptr);

@@ -3,7 +3,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Folder Name="/Shared/" />
+  <Folder Name="/Shared/">
+    <File Path="Shared/config.h" />
+  </Folder>
   <Folder Name="/Shared/phnt/">
     <File Path="Shared/phnt/ntafd.h" />
     <File Path="Shared/phnt/ntbcd.h" />
@@ -51,6 +53,11 @@
     <File Path="Shared/syswhispers/syswhispers-asm.x64.asm" />
     <File Path="Shared/syswhispers/syswhispers.c" />
     <File Path="Shared/syswhispers/syswhispers.h" />
+  </Folder>
+  <Folder Name="/Shared/vendetta/">
+    <File Path="Shared/vendetta/debug_logger.h" />
+    <File Path="Shared/vendetta/vendetta.cpp" />
+    <File Path="Shared/vendetta/vendetta.h" />
   </Folder>
   <Project Path="VendettaCore/VendettaCore.vcxproj" Id="eece1d9a-89c5-4bc5-9bec-0d9c99b0bf28" />
   <Project Path="VendettaStager/VendettaStager.vcxproj" Id="0cef038c-3468-419e-872f-84ea47e22e10" />
