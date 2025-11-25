@@ -3,37 +3,47 @@
 
 Vendetta is a proof-of-concept User-Mode injector that utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection.
 
-Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_PRIVATE` allocations for the payload. It leverages **Special User APCs** for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
+Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_PRIVATE` allocations for the payload. It uses `NtQueueApcThreadEx` for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
 
 ## Key Features
 * **Transacted Hollowing:** Maps the payload as `MEM_IMAGE` backed by a transaction (Phantom DLL technique), bypassing `MEM_PRIVATE` execution scans.
 * **Threadless Execution:** Uses `NtQueueApcThreadEx` with `QUEUE_USER_APC_FLAGS_SPECIAL_USER_APC` to hijack existing threads without triggering kernel callbacks like `PsSetCreateThreadNotifyRoutine`.
-* **Stealth Linking:** Locates and calls `ntdll!LdrpInsertDataTableEntry` to register the module in the PEB, `LdrpHashTable`, and `LdrpModuleBaseAddressIndex` (RB-Tree).
-* **Silent Load:** Modifies `LDR_DATA_TABLE_ENTRY` flags (`LDRP_DONT_CALL_FOR_THREADS`) to prevent race conditions and duplicate execution on thread creation.
+* **Legit-Linking:** Locates and calls `ntdll!LdrpInsertDataTableEntry` to register the module in the PEB, `LdrpHashTable`, and `LdrpModuleBaseAddressIndex` to look as legit as possible to memory scanners.
 
 ## Usage
 
 ```console
-# Target by Process ID
-vendetta.exe -p <PID> <path to benign dll>
-```
+____   ____                 .___      __    __
+\   \ /   /____   ____    __| _/_____/  |__/  |______
+ \   Y   // __ \ /    \  / __ |/ __ \   __\   __\__  \
+  \     /\  ___/|   |  \/ /_/ \  ___/|  |  |  |  / __ \_
+   \___/  \___  >___|  /\____ |\___  >__|  |__| (____  /
+                                                     \/
+        .------------------------------------.
+        |Advanced Phantom DLL injector v1.0.0|
+        |      Author: (wichtigerlelek)      |
+        '------------------------------------'
+Usage: vendetta.exe [TARGET] [OPTIONS] <PHANTOM_DLL_PATH>
 
-```console
-# Target by Process Name
-vendetta.exe -n <process exe name> <path to benign dll>
-```
+Target (Choose one):
+  -pid <id>          Target process by PID
+  -proc <name>       Target process by Name (e.g., notepad.exe)
 
-## Included Test Payloads
-The repository includes two pre-compiled x64 payloads for testing purposes. Both execute a standard "Hello World" message box:
-1. shellc_hello.bin: Standard Metasploit-generated shellcode.
-2. buf.bin: A PE file converted to shellcode using Donut.
+Options:
+  -payload <path>    Path to the raw shellcode/PE-shellcode file
+  -m <method>        Handle hijacking method: 'open_handle' (default) or 'hijack_handle'
+
+Examples:
+  vendetta.exe -pid 1234 -payload shellcode.bin C:\Windows\System32\xpsservices.dll
+  vendetta.exe -proc notepad.exe -payload beacon.bin -m hijack_handle C:\Windows\System32\xpsservices.dll
+```
 
 ## Roadmap
-- [x] Phantom DLL Linking: Successfully link transacted sections to the PEB (Lists, Hash Table, & RB-Tree).
+- [x] Phantom DLL PEB linking.
 - [x] Handle Hijacking: Implement handle duplication to bypass permission checks.
-- [ ] Proxy Injection: Convert the loader to a dll, inject into whitelisted processes to use that process's handle
+- [ ] Proxy Injection: Convert the loader to a dll, inject into whitelisted processes with VM_WRITE | VM_READ handle.
 - [ ] Memory-Only Loading: Support loading DLLs directly from memory buffers (avoiding disk I/O entirely).
-- [ ] Header Stomping or changing it with ntdll header (optional experiment).
+- [ ] Header Stomping or changing it with ntdll header to confuse dumpers (optional experiment).
 - [ ] Call Stack Spoofing (optional).
 
 ## Disclaimer
