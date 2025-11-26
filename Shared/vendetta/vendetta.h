@@ -44,7 +44,8 @@ namespace Vendetta
 
 	DWORD FindProcessId(const std::wstring &processName);
 	std::vector<uint8_t> GetSystemInfoClass(SYSTEM_INFORMATION_CLASS infoClass);
-	PVOID GetProcessObject(const DWORD targetPid);
+	PVOID GetProcessObjectTypeFromTarget(const DWORD targetPid);
+	BYTE GetProcessObjectTypeIndex();
 	HANDLE FindProcessHandleInternal(const DWORD &targetPid);
 
 	MODULEENTRY32W GetModuleEntry32W(const wchar_t* moduleName,

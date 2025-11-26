@@ -1,4 +1,5 @@
 #pragma once
+#include <windows.h>
 #include <print>
 #include <string_view>
 #include <chrono>
@@ -13,9 +14,10 @@ enum LogType : uint8_t
 };
 
 constexpr std::string_view RESET = "\033[0m";
-constexpr std::string_view GREEN = "\033[32m";
-constexpr std::string_view YELLOW = "\033[33m";
-constexpr std::string_view RED = "\033[31m";
+constexpr std::string_view GREEN = "\033[1;32m";
+constexpr std::string_view YELLOW = "\033[1;33m";
+constexpr std::string_view RED = "\033[1;31m";
+
 
 inline std::string GetTime() {
     auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
@@ -25,8 +27,8 @@ inline std::string GetTime() {
 template <typename... Args>
 void Log(const LogType logType, std::format_string<Args...> fmt, Args&&... args)
 {
-    std::string_view color;
     std::string_view label;
+    std::string_view color;
     FILE* stream = stdout;
 
     switch (logType)
@@ -54,14 +56,20 @@ void Log(const LogType logType, std::format_string<Args...> fmt, Args&&... args)
     }
 
     std::string timestamp = GetTime();
-
     std::string userMessage = std::format(fmt, std::forward<Args>(args)...);
 
-    std::println(stream, "{} {} {}{}{}",
+    std::string msg = std::format("[{}] {} {}", timestamp, label, userMessage);
+
+    #ifdef _WINDLL
+    msg += '\n';
+    OutputDebugStringA(msg.c_str());
+    #else
+    std::println(stream, "[{}] {} {}{}{}",
         timestamp,
         color,
         label,
         userMessage,
         RESET
     );
+    #endif
 }

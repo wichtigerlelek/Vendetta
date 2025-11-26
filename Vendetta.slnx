@@ -55,7 +55,7 @@
     <File Path="Shared/syswhispers/syswhispers.h" />
   </Folder>
   <Folder Name="/Shared/vendetta/">
-    <File Path="Shared/vendetta/debug_logger.h" />
+    <File Path="Shared/vendetta/logger.h" />
     <File Path="Shared/vendetta/vendetta.cpp" />
     <File Path="Shared/vendetta/vendetta.h" />
   </Folder>

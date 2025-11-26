@@ -147,9 +147,6 @@
   <ItemGroup>
     <MASM Include="..\Shared\syswhispers\syswhispers-asm.x64.asm" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\logger.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

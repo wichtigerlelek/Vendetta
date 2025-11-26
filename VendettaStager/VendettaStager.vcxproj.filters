@@ -30,9 +30,4 @@
       <Filter>Source Files</Filter>
     </MASM>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
 </Project>

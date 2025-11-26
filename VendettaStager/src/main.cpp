@@ -6,10 +6,9 @@
 #include <ntexapi.h>
 #include <phnt_ntdef.h>
 
-#include "logger.h"
-#include "config.h"
-
 #include "vendetta/vendetta.h"
+#include "vendetta/logger.h"
+#include "config.h"
 
 namespace
 {
@@ -17,26 +16,26 @@ namespace
 	{
 		HANDLE hToken;
 		if (!OpenProcessToken(GetCurrentProcess(),
-			TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
-			&hToken))
+		                      TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+		                      &hToken))
 			return false;
 
-		TOKEN_PRIVILEGES TokenPrivileges = { 0 };
+		TOKEN_PRIVILEGES TokenPrivileges = {0};
 		TokenPrivileges.PrivilegeCount = 1;
 		TokenPrivileges.Privileges[0].Attributes = bState
-			? SE_PRIVILEGE_ENABLED
-			: 0;
+			                                           ? SE_PRIVILEGE_ENABLED
+			                                           : 0;
 
 		if (!LookupPrivilegeValueA(nullptr, szPrivilege,
-			&TokenPrivileges.Privileges[0].Luid))
+		                           &TokenPrivileges.Privileges[0].Luid))
 		{
 			CloseHandle(hToken);
 			return false;
 		}
 
 		if (!AdjustTokenPrivileges(hToken, FALSE, &TokenPrivileges,
-			sizeof(TOKEN_PRIVILEGES), nullptr,
-			nullptr))
+		                           sizeof(TOKEN_PRIVILEGES), nullptr,
+		                           nullptr))
 		{
 			CloseHandle(hToken);
 			return false;
@@ -50,21 +49,29 @@ namespace
 	std::map<DWORD, std::wstring> GetProcessMap()
 	{
 		std::map<DWORD, std::wstring> processMap;
-		auto sysInfoBuffer = Vendetta::GetSystemInfoClass(SystemProcessInformation);
+		auto sysInfoBuffer = Vendetta::GetSystemInfoClass(
+			SystemProcessInformation);
 		if (sysInfoBuffer.empty()) return processMap;
 
-		auto pProcessInfo = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(sysInfoBuffer.data());
+		auto pProcessInfo = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(
+			sysInfoBuffer.data());
 		while (true)
 		{
-			const DWORD pid = static_cast<DWORD>(reinterpret_cast<uintptr_t>(pProcessInfo->UniqueProcessId));
+			const DWORD pid = static_cast<DWORD>(reinterpret_cast<uintptr_t>(
+				pProcessInfo->UniqueProcessId));
 			const std::wstring processName = pProcessInfo->ImageName.Buffer
-				? std::wstring(pProcessInfo->ImageName.Buffer, pProcessInfo->ImageName.Length / sizeof(wchar_t))
-				: L"System Idle Process";
+				                                 ? std::wstring(
+					                                 pProcessInfo->ImageName.
+					                                 Buffer,
+					                                 pProcessInfo->ImageName.
+					                                 Length / sizeof(wchar_t))
+				                                 : L"System Idle Process";
 			processMap[pid] = processName;
 			if (pProcessInfo->NextEntryOffset == 0)
 				break;
 			pProcessInfo = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(
-				reinterpret_cast<uint8_t*>(pProcessInfo) + pProcessInfo->NextEntryOffset);
+				reinterpret_cast<uint8_t*>(pProcessInfo) + pProcessInfo->
+				NextEntryOffset);
 		}
 
 		return processMap;
@@ -73,15 +80,21 @@ namespace
 	void FindHandleToProcess(const DWORD targetPid)
 	{
 		auto processMap = GetProcessMap();
-		std::wstring targetName = processMap.contains(targetPid) ? processMap[targetPid] : L"Unknown";
+		std::wstring targetName = processMap.contains(targetPid)
+			                          ? processMap[targetPid]
+			                          : L"Unknown";
 
-		auto handleBuffer = Vendetta::GetSystemInfoClass(SystemExtendedHandleInformation);
-		const auto pHandleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(handleBuffer.data());
-		PVOID targetObjectAddress = Vendetta::GetProcessObject(targetPid);
+		auto handleBuffer = Vendetta::GetSystemInfoClass(
+			SystemExtendedHandleInformation);
+		const auto pHandleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>
+			(handleBuffer.data());
+		PVOID targetObjectAddress = Vendetta::GetProcessObjectTypeFromTarget(
+			targetPid);
 		const DWORD myPid = GetCurrentProcessId();
 
 
-		constexpr ACCESS_MASK requiredAccess = PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION;
+		constexpr ACCESS_MASK requiredAccess = PROCESS_VM_WRITE |
+			PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION;
 		for (ULONG_PTR i = 0; i < pHandleInfo->NumberOfHandles; i++)
 		{
 			const auto& entry = pHandleInfo->Handles[i];
@@ -98,102 +111,118 @@ namespace
 				ownerName = processMap[ownerPid];
 
 			Log(LogInfo, "{} ({:d}) holds a handle to {} with Access: 0x{:x}",
-				std::string(ownerName.begin(), ownerName.end()),
-				reinterpret_cast<DWORD>(entry.UniqueProcessId),
-				std::string(targetName.begin(), targetName.end()),
-				entry.GrantedAccess);
+			    std::string(ownerName.begin(), ownerName.end()),
+			    reinterpret_cast<DWORD>(entry.UniqueProcessId),
+			    std::string(targetName.begin(), targetName.end()),
+			    entry.GrantedAccess);
 		}
 	}
 
-	void InjectCoreDll(const DWORD pId)
-        {
-	        HANDLE hProcess = nullptr;
-            OBJECT_ATTRIBUTES objAttr = { sizeof(OBJECT_ATTRIBUTES) };
-            CLIENT_ID clientId = { UlongToHandle(pId), nullptr };
-            NTSTATUS status = Sw3NtOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr,
-                                               &clientId);
-            if (!NT_SUCCESS(status))
-            {
-                Log(LogError, "Sw3NtOpenProcess failed. Status = {:x}", static_cast<unsigned int>(status));
-                return;
-            }
+	void InjectCoreDll(const DWORD pId, const std::string& coreDllPath)
+	{
+		HANDLE hProcess = nullptr;
+		OBJECT_ATTRIBUTES objAttr = {sizeof(OBJECT_ATTRIBUTES)};
+		CLIENT_ID clientId = {UlongToHandle(pId), nullptr};
+		NTSTATUS status = Sw3NtOpenProcess(&hProcess, PROCESS_ALL_ACCESS,
+		                                   &objAttr,
+		                                   &clientId);
+		if (!NT_SUCCESS(status))
+		{
+			Log(LogError, "Sw3NtOpenProcess failed. Status = {:x}",
+			    static_cast<unsigned int>(status));
+			return;
+		}
 
-            PVOID pDllPath = nullptr;
-            SIZE_T pathLen = strlen(VENDETTA_PATH) + 1;
-            SIZE_T regionSize = pathLen;
-            status = Sw3NtAllocateVirtualMemory(hProcess, &pDllPath, 0, &regionSize, MEM_COMMIT, PAGE_READWRITE);
-            if (!NT_SUCCESS(status))
-            {
-                Log(LogError, "Sw3NtAllocateVirtualMemory failed. Status = {:x}", static_cast<unsigned int>(status));
-                Sw3NtClose(hProcess);
-                return;
-            }
+		PVOID pDllPath = nullptr;
+		SIZE_T pathLen = strlen(coreDllPath.c_str()) + 1;
+		SIZE_T regionSize = pathLen;
+		status = Sw3NtAllocateVirtualMemory(hProcess, &pDllPath, 0, &regionSize,
+		                                    MEM_COMMIT, PAGE_READWRITE);
+		if (!NT_SUCCESS(status))
+		{
+			Log(LogError, "Sw3NtAllocateVirtualMemory failed. Status = {:x}",
+			    static_cast<unsigned int>(status));
+			Sw3NtClose(hProcess);
+			return;
+		}
 
-            status = Sw3NtWriteVirtualMemory(hProcess, pDllPath, PVOID(VENDETTA_PATH), pathLen, nullptr);
-            if (!NT_SUCCESS(status))
-            {
-                Log(LogError, "Sw3NtWriteVirtualMemory failed. Status = {:x}", static_cast<unsigned int>(status));
+		status = Sw3NtWriteVirtualMemory(hProcess, pDllPath,
+		                                 PVOID(coreDllPath.c_str()), pathLen,
+		                                 nullptr);
+		if (!NT_SUCCESS(status))
+		{
+			Log(LogError, "Sw3NtWriteVirtualMemory failed. Status = {:x}",
+			    static_cast<unsigned int>(status));
 
-                SIZE_T freeSize = 0;
-                Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
-                Sw3NtClose(hProcess);
-                return;
-            }
+			SIZE_T freeSize = 0;
+			Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
+			Sw3NtClose(hProcess);
+			return;
+		}
 
-            auto loadLibraryAddr = reinterpret_cast<PVOID>(GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"));
-            if (!loadLibraryAddr) {
-                Log(LogError, "Failed to resolve LoadLibraryA locally.");
-                return;
-            }
+		auto loadLibraryAddr = reinterpret_cast<PVOID>(GetProcAddress(
+			GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"));
+		if (!loadLibraryAddr)
+		{
+			Log(LogError, "Failed to resolve LoadLibraryA locally.");
+			return;
+		}
 
-            HANDLE hLoadThread = nullptr;
-            status = Sw3NtCreateThreadEx(&hLoadThread, THREAD_ALL_ACCESS, nullptr, hProcess,
-                loadLibraryAddr, pDllPath,
-                FALSE, 0, 0, 0, nullptr);
+		HANDLE hLoadThread = nullptr;
+		status = Sw3NtCreateThreadEx(&hLoadThread, THREAD_ALL_ACCESS, nullptr,
+		                             hProcess,
+		                             loadLibraryAddr, pDllPath,
+		                             FALSE, 0, 0, 0, nullptr);
 
-            if (!NT_SUCCESS(status))
-            {
-                Log(LogError, "Sw3NtCreateThreadEx failed. Status = {:x}", static_cast<unsigned int>(status));
+		if (!NT_SUCCESS(status))
+		{
+			Log(LogError, "Sw3NtCreateThreadEx failed. Status = {:x}",
+			    static_cast<unsigned int>(status));
 
-                SIZE_T freeSize = 0;
-                Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
-                Sw3NtClose(hProcess);
-                return;
-            }
+			SIZE_T freeSize = 0;
+			Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
+			Sw3NtClose(hProcess);
+			return;
+		}
 
-            status = Sw3NtWaitForSingleObject(hLoadThread, FALSE, nullptr);
+		status = Sw3NtWaitForSingleObject(hLoadThread, FALSE, nullptr);
 
-            SIZE_T freeSize = 0;
-            Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
+		SIZE_T freeSize = 0;
+		Sw3NtFreeVirtualMemory(hProcess, &pDllPath, &freeSize, MEM_RELEASE);
 
-            Sw3NtClose(hLoadThread);
-            Sw3NtClose(hProcess);
+		Sw3NtClose(hLoadThread);
+		Sw3NtClose(hProcess);
 
-            Log(LogInfo, "VendettaCore injected successfully.");
+		Log(LogInfo, "VendettaCore injected successfully.");
 	}
 
 	void FreeCoreDll(const DWORD pId)
 	{
-		PROCESS_INFORMATION pi = { 0 };
+		PROCESS_INFORMATION pi = {0};
 		pi.dwProcessId = pId;
-		Log(LogInfo, "Searching for module to unload: {}", std::string(VENDETTA_NAME.begin(), VENDETTA_NAME.end()));
+		Log(LogInfo, "Searching for module to unload: {}", VENDETTA_NAME);
 
-		const MODULEENTRY32W me32 = Vendetta::GetModuleEntry32W(std::wstring(VENDETTA_NAME.begin(), VENDETTA_NAME.end()).data(), pi);
+		const MODULEENTRY32W me32 = Vendetta::GetModuleEntry32W(
+			std::wstring(VENDETTA_NAME.begin(), VENDETTA_NAME.end()).data(),
+			pi);
 		if (me32.modBaseAddr == nullptr)
 		{
 			Log(LogError, "Module not found in target process.");
 			return;
 		}
-		Log(LogInfo, "Found module at: {:p}", static_cast<PVOID>(me32.modBaseAddr));
+		Log(LogInfo, "Found module at: {:p}",
+		    static_cast<PVOID>(me32.modBaseAddr));
 
 		HANDLE hProcess = nullptr;
-		OBJECT_ATTRIBUTES objAttr = { sizeof(OBJECT_ATTRIBUTES) };
-		CLIENT_ID clientId = { UlongToHandle(pId), nullptr };
-		NTSTATUS status = Sw3NtOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr,
-			&clientId);
+		OBJECT_ATTRIBUTES objAttr = {sizeof(OBJECT_ATTRIBUTES)};
+		CLIENT_ID clientId = {UlongToHandle(pId), nullptr};
+		NTSTATUS status = Sw3NtOpenProcess(&hProcess, PROCESS_ALL_ACCESS,
+		                                   &objAttr,
+		                                   &clientId);
 		if (!NT_SUCCESS(status))
 		{
-			Log(LogError, "Sw3NtOpenProcess failed. Status = {:x}", static_cast<unsigned int>(status));
+			Log(LogError, "Sw3NtOpenProcess failed. Status = {:x}",
+			    static_cast<unsigned int>(status));
 			return;
 		}
 
@@ -205,8 +234,9 @@ namespace
 			return;
 		}
 
-		auto pFreeLibrary = reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(
-			hKernel32, "FreeLibrary"));
+		auto pFreeLibrary = reinterpret_cast<LPTHREAD_START_ROUTINE>(
+			GetProcAddress(
+				hKernel32, "FreeLibrary"));
 		if (!pFreeLibrary)
 		{
 			Log(LogError, "Failed to resolve FreeLibrary address.");
@@ -226,7 +256,8 @@ namespace
 		);
 		if (!hThread)
 		{
-			Log(LogError, "CreateRemoteThread failed. Error = {}", GetLastError());
+			Log(LogError, "CreateRemoteThread failed. Error = {}",
+			    GetLastError());
 			CloseHandle(hProcess);
 			return;
 		}
@@ -239,26 +270,12 @@ namespace
 			if (exitCode != 0)
 				Log(LogInfo, "Module unloaded successfully.");
 			else
-				Log(LogWarn, "FreeLibrary returned FALSE. The module might be pinned or invalid.");
+				Log(LogWarn,
+				    "FreeLibrary returned FALSE. The module might be pinned or invalid.");
 		}
 
 		CloseHandle(hThread);
 		CloseHandle(hProcess);
-	}
-
-	[[maybe_unused]] void TestCoreDllLocal(const DWORD pId)
-	{
-		const HANDLE hTarget = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION, FALSE, pId);
-
-		const HANDLE hDll = LoadLibraryA(VENDETTA_PATH);
-		if (!hDll)
-		{
-			Log(LogError, "Error loading dll");
-		}
-		int input = getchar();
-
-		CloseHandle(hDll);
-		CloseHandle(hTarget);
 	}
 }
 
@@ -278,26 +295,50 @@ int main()
         '-------------------------------------'          )", VENDETTA_VERSION);
 	if (!SetPrivilege("SeDebugPrivilege"))
 	{
-		Log(LogError, "Failed to set SeDebugPrivilege. This program needs to be ran as Administrator");
+		Log(LogError,
+		    "Failed to set SeDebugPrivilege. This program needs to be ran as Administrator");
 		return 1;
 	}
-	
+
+	auto getExeDirectory = [&]()
+	{
+		char buffer[MAX_PATH];
+		if (GetModuleFileNameA(NULL, buffer, MAX_PATH) == 0)
+		{
+			return std::string("");
+		}
+		const std::filesystem::path exePath(buffer);
+		return exePath.parent_path().string();
+	};
+
+	std::string coreDllPath = (std::filesystem::path(getExeDirectory()) /
+		VENDETTA_NAME).string();
+
+	if (!std::filesystem::exists(coreDllPath))
+	{
+		Log(LogError, "VendettaCore.dll not found at: {}", coreDllPath);
+		return 1;
+	}
+
+	Log(LogInfo, "Target: {}", std::string(TARGET.begin(), TARGET.end()));
+	Log(LogInfo, "Vendetta Core: {}", coreDllPath);
+
 	const DWORD pId = Vendetta::FindProcessId(TARGET);
 	if (pId == 0)
 	{
 		Log(LogError, "Target not found");
-		return 1;
+		return 2;
 	}
 
-    FindHandleToProcess(pId);
+	FindHandleToProcess(pId);
 
 	DWORD target = 0;
-	std::print(">> Inject into (PID): ");
+	std::print(">> Inject Core into Proxy (PID): ");
 	std::cin >> target;
 	if (target != 0)
 	{
 		Log(LogInfo, "Injecting into PID = {}", target);
-		InjectCoreDll(target);
+		InjectCoreDll(target, coreDllPath);
 		Sleep(2500);
 		FreeCoreDll(target);
 	}

