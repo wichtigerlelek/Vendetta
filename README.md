@@ -37,13 +37,13 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
    
    If successful, you should see output similar to:
 ```
-   [13:27:03.2370532]  [INFO] Target: dummy.exe
-   [13:27:03.2432829]  [INFO] Vendetta Core: C:\Path\To\VendettaCore.dll
-   [13:27:03.2502683]  [INFO] Resizing SystemInformation buffer to 431kb
-   [13:27:03.2615058]  [INFO] Resizing SystemInformation buffer to 4524kb
-   [13:27:03.2668809]  [INFO] System (4) holds a handle to dummy.exe with Access: 0x1fffff
-   [13:27:03.2669883]  [INFO] csrss.exe (1624) holds a handle to dummy.exe with Access: 0x1fffff
-   [13:27:03.2670772]  [INFO] svchost.exe (3152) holds a handle to dummy.exe with Access: 0x1478
+[13:27:03.2370532]  [INFO] Target: dummy.exe
+[13:27:03.2432829]  [INFO] Vendetta Core: C:\Path\To\VendettaCore.dll
+[13:27:03.2502683]  [INFO] Resizing SystemInformation buffer to 431kb
+[13:27:03.2615058]  [INFO] Resizing SystemInformation buffer to 4524kb
+[13:27:03.2668809]  [INFO] System (4) holds a handle to dummy.exe with Access: 0x1fffff
+[13:27:03.2669883]  [INFO] csrss.exe (1624) holds a handle to dummy.exe with Access: 0x1fffff
+[13:27:03.2670772]  [INFO] svchost.exe (3152) holds a handle to dummy.exe with Access: 0x1478
 ```
 
 6. **Monitor debug output (Optional)**
@@ -51,26 +51,26 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
    - Enable **Capture → Capture Global Win32**
    If successful, you should see output similar to:
 ```
-   00000001	0.00000000	[3148] [15:26:42.0672213] [INFO]  Found target PID: 8080	
-   00000002	0.00111760	[3148] [15:26:42.0684219] [INFO]  Resizing SystemInformation buffer to 4422kb	
-   00000003	0.41092640	[3148] [15:26:42.4781609] [INFO]  Found internal handle: 0x1a8 (Access: 1478)	
-   00000004	0.41115350	[3148] [15:26:42.4784655] [WARN]  Copying C:\Windows\System32\xpsservices.dll to TEMP folder	
-   00000005	0.41706941	[3148] [15:26:42.4843646] [INFO]  Reading Legitimate DLL: C:\WINDOWS\TEMP\xpsservices.dll	
-   00000006	0.44701001	[3148] [15:26:42.5142751] [INFO]  Transaction created.	
-   00000007	0.46979779	[3148] [15:26:42.5370645] [INFO]  Patching .text section in memory...	
-   00000008	0.46983531	[3148] [15:26:42.5371462] [INFO]  Writing patched PE content to transaction...	
-   00000009	0.48787650	[3148] [15:26:42.5551632] [INFO]  Section created and mapped to the target process.	
-   00000010	1.01908624	[3148] [15:26:43.0863445] [INFO]  Transaction rolled back successfully.	
-   00000011	1.01912534	[3148] [15:26:43.0864348] [INFO]  Mapped Base Address: 0x7ffaf3430000	
-   00000012	1.01915765	[3148] [15:26:43.0864744] [INFO]  Linking phantom dll to PEB...	
-   00000013	1.01918662	[3148] [15:26:43.0865050] [INFO]  Looking for LdrpInsertDataTableEntry, pattern: 40 53 48 83 EC ? F6 41 ? ? 48 8B D9 75	
-   00000014	1.02028728	[3148] [15:26:43.0875914] [INFO]  Pattern found at address: 0x7ffbd70e64b0	
-   00000015	1.02043033	[3148] [15:26:43.0877436] [INFO]  Memory allocated and LDR entry written.	
-   00000016	1.04362738	[3148] [15:26:43.1109310] [INFO]  Queueing Apc. Executing 0x7ffbd70e64b0, RCX: 0x239c2320000, RDX: 0x0, R8: 0x0. TID = 14496.	
-   00000017	1.04367030	[3148] [15:26:43.1109841] [INFO]  Linked successfully via direct LdrpInsertDataTableEntry call.	
-   00000018	1.06541276	[3148] [15:26:43.1327225] [INFO]  Queueing Apc. Executing 0x7ffaf3431000, RCX: 0x0, RDX: 0x0, R8: 0x0. TID = 14496.	
-   00000019	1.06555283	[3148] [15:26:43.1328701] [INFO]  Injection succeeded	
-   00000020	1.06558251	[3148] [15:26:43.1329020] [WARN]  Deleting C:\WINDOWS\TEMP\xpsservices.dll	
+00000001	0.00000000	[3148] [15:26:42.0672213] [INFO]  Found target PID: 8080	
+00000002	0.00111760	[3148] [15:26:42.0684219] [INFO]  Resizing SystemInformation buffer to 4422kb	
+00000003	0.41092640	[3148] [15:26:42.4781609] [INFO]  Found internal handle: 0x1a8 (Access: 1478)	
+00000004	0.41115350	[3148] [15:26:42.4784655] [WARN]  Copying C:\Windows\System32\xpsservices.dll to TEMP folder	
+00000005	0.41706941	[3148] [15:26:42.4843646] [INFO]  Reading Legitimate DLL: C:\WINDOWS\TEMP\xpsservices.dll	
+00000006	0.44701001	[3148] [15:26:42.5142751] [INFO]  Transaction created.	
+00000007	0.46979779	[3148] [15:26:42.5370645] [INFO]  Patching .text section in memory...	
+00000008	0.46983531	[3148] [15:26:42.5371462] [INFO]  Writing patched PE content to transaction...	
+00000009	0.48787650	[3148] [15:26:42.5551632] [INFO]  Section created and mapped to the target process.	
+00000010	1.01908624	[3148] [15:26:43.0863445] [INFO]  Transaction rolled back successfully.	
+00000011	1.01912534	[3148] [15:26:43.0864348] [INFO]  Mapped Base Address: 0x7ffaf3430000	
+00000012	1.01915765	[3148] [15:26:43.0864744] [INFO]  Linking phantom dll to PEB...	
+00000013	1.01918662	[3148] [15:26:43.0865050] [INFO]  Looking for LdrpInsertDataTableEntry, pattern: 40 53 48 83 EC ? F6 41 ? ? 48 8B D9 75	
+00000014	1.02028728	[3148] [15:26:43.0875914] [INFO]  Pattern found at address: 0x7ffbd70e64b0	
+00000015	1.02043033	[3148] [15:26:43.0877436] [INFO]  Memory allocated and LDR entry written.	
+00000016	1.04362738	[3148] [15:26:43.1109310] [INFO]  Queueing Apc. Executing 0x7ffbd70e64b0, RCX: 0x239c2320000, RDX: 0x0, R8: 0x0. TID = 14496.	
+00000017	1.04367030	[3148] [15:26:43.1109841] [INFO]  Linked successfully via direct LdrpInsertDataTableEntry call.	
+00000018	1.06541276	[3148] [15:26:43.1327225] [INFO]  Queueing Apc. Executing 0x7ffaf3431000, RCX: 0x0, RDX: 0x0, R8: 0x0. TID = 14496.	
+00000019	1.06555283	[3148] [15:26:43.1328701] [INFO]  Injection succeeded	
+00000020	1.06558251	[3148] [15:26:43.1329020] [WARN]  Deleting C:\WINDOWS\TEMP\xpsservices.dll	
 ```
 
 7. **Execute injection**
