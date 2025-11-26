@@ -10,20 +10,20 @@ This is the proxy version of vendetta. It injects itself into a third process to
 
 1. **Clone the repository**
 ```bash
-   git clone -b proxy-injection https://github.com/wichtigerlelek/Vendetta.git
+git clone -b proxy-injection https://github.com/wichtigerlelek/Vendetta.git
 ```
 
 2. **Configure the target process**
    - Navigate to `$(SolutionDir)Shared/config.h`
    - Modify the target process name:
 ```cpp
-     const std::wstring TARGET = L"dummy.exe"; // Change to your target process
+const std::wstring TARGET = L"dummy.exe"; // Change to your target process
 ```
 
 3. **Configure the phantom DLL (Optional)**
    - In the same `config.h` file, you can specify which legitimate DLL to use as the phantom:
 ```cpp
-     const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
+const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 ```
 
 4. **Build and run**
