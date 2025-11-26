@@ -49,7 +49,8 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 6. **Monitor debug output (Optional)**
    - Open DebugView as Administrator
    - Enable **Capture → Capture Global Win32**
-   If successful, you should see output similar to:
+   
+   If the injection was successful, you should see output similar to:
 ```
 00000001	0.00000000	[3148] [15:26:42.0672213] [INFO]  Found target PID: 8080	
 00000002	0.00111760	[3148] [15:26:42.0684219] [INFO]  Resizing SystemInformation buffer to 4422kb	
