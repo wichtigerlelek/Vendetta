@@ -29,11 +29,15 @@ const std::wstring TARGET = L"dummy.exe"; // Change to your target process
 const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 ```
 
-4. **Build and run**
+4. **Add Custom shellcode (Optional)**
+   - Change the `static unsigned char buf[320]` inside the `dllmain.cpp` to your desired shellcode
+   - The included shellcode is a x64 Messagebox generated with Metasploit
+
+5. **Build and run**
    - Build the project
    - Run `VendettaStager.exe` **as Administrator**
 
-5. **Verify execution**
+6. **Verify execution**
    
    If successful, you should see output similar to:
 ```
@@ -46,7 +50,7 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 [13:27:03.2670772]  [INFO] svchost.exe (3152) holds a handle to dummy.exe with Access: 0x1478
 ```
 
-6. **Monitor debug output (Optional)**
+7. **Monitor debug output (Optional)**
    - Open DebugView as Administrator
    - Enable **Capture → Capture Global Win32**
    
@@ -74,7 +78,7 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 00000020	1.06558251	[3148] [15:26:43.1329020] [WARN]  Deleting C:\WINDOWS\TEMP\xpsservices.dll	
 ```
 
-7. **Execute injection**
+8. **Execute injection**
    - Enter the PID of the process you want to use as a proxy
    - The injection process will begin automatically
 
