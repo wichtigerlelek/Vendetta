@@ -5,8 +5,8 @@ Vendetta is a proof-of-concept User-Mode injector that utilizes **Transacted Sec
 
 Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_PRIVATE` allocations for the payload. It uses `NtQueueApcThreadEx` for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
 
-## Information
-* The **master** branch is currently just a showcase because it is easy to use. For more serious testing the **proxy-injection** branch should be used because it only opens a `PROCESS_QUERY_LIMITED_INFORMATION` Handle to the target which is minimum access and less suspicious than `PROCESS_VM_WRITE | PROCESS_VM_OPERATION`. You can make it work completely handle-less but you need to use **System Informer** or a simlar tool to look up which process currently running has a `PROCESS_VM_WRITE | PROCESS_VM_OPERATION` Handle open to the target, which is usually one or more of the `svchost.exe` processes.
+## Information about the Proxy-Injection
+* Vendetta now only opens a `PROCESS_QUERY_LIMITED_INFORMATION` Handle to the target which is minimum access and less suspicious than `PROCESS_VM_WRITE | PROCESS_VM_OPERATION`. You can make it work completely handle-less but you need to use **System Informer** or a simlar tool to look up which process currently running has a `PROCESS_VM_WRITE | PROCESS_VM_OPERATION` Handle open to the target, which is usually one or more of the `svchost.exe` processes.
 
 ## What it doesn't
 * **It does not** evade moneta, pe-sieve, ... because it patches the .text section of the transacted file and these tools can compare it to the disk and easily detect the mismatch. **Can this be changed / improved?** Yes and no. Patching the .reloc section and marking it as RX should fix this but that is very suspicious / unexpected that the .reloc section is exercutable and i think it would only make it worse. Another way to fix this would be to overwrite the .text section on the disk but than it would fail because the disk image is not signed anymore and this would just be a shitty loadlibrary injector.
@@ -26,7 +26,7 @@ Unlike standard injectors, Vendetta avoids creating new threads and avoids `MEM_
 
 1. **Clone the repository**
 ```bash
-git clone -b proxy-injection https://github.com/wichtigerlelek/Vendetta.git
+git clone https://github.com/wichtigerlelek/Vendetta.git
 ```
 
 2. **Configure the target process**
