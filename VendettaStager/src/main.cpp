@@ -3,6 +3,7 @@
 #include <syswhispers/syswhispers.h>
 #include <TlHelp32.h>
 #include <print>
+#include <filesystem>
 #include <ntexapi.h>
 #include <phnt_ntdef.h>
 
@@ -300,6 +301,9 @@ int main()
 		return 1;
 	}
 
+	if constexpr (COPY_AND_DELETE)
+		Log(LogWarn, "COPY_AND_DELETE is enabled. This is not bad, it is just a bit less stealthy");
+
 	auto getExeDirectory = [&]()
 	{
 		char buffer[MAX_PATH];
@@ -339,7 +343,11 @@ int main()
 	{
 		Log(LogInfo, "Injecting into PID = {}", target);
 		InjectCoreDll(target, coreDllPath);
-		Sleep(2500);
+		for (int i = 0; i < 3; ++i)
+		{
+			Log(LogWarn, "Unloading in {}", 3-i);
+			Sleep(1000);
+		}
 		FreeCoreDll(target);
 	}
 	return 0;

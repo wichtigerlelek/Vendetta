@@ -303,7 +303,7 @@ namespace Vendetta
             return false;
         }
 
-        Log(LogInfo, "Queueing Apc. Executing {:p}, RCX: {}, RDX: {}, R8: {}. TID = {}.",
+        Log(LogInfo, "Queueing Apc. Executing: {:p}, RCX: {}, RDX: {}, R8: {}. TID = {}.",
             reinterpret_cast<PVOID>(baseAddress),
             static_cast<PVOID>(arg1),
             static_cast<PVOID>(arg2),
