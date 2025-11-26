@@ -5,6 +5,10 @@ Vendetta is a proof-of-concept User-Mode Proxy-Injector that utilizes **Transact
 
 Unlike standard injectors, Vendetta does **not need a Handle** to the target, avoids creating new threads and avoids `MEM_PRIVATE` allocations for the payload. It uses `NtQueueApcThreadEx` for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
 
+### Virustotal Results
+- Stager: https://www.virustotal.com/gui/file/9985e2b63ea740fb1c4b34e2c67bd8a2f685f6f38b5d230f7c84e72e1750eb0a?nocache=1
+- CoreDll: https://www.virustotal.com/gui/file/26280b6ec80598ec45d0e0ab20f16d4aa8dba12695f4368dec2d3e50a76f3e86?nocache=1
+
 ## Usage
 ### Prerequisites
 - Administrator privileges required for VendettaStager.exe
