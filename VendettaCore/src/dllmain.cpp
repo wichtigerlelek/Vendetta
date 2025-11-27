@@ -46,10 +46,45 @@ namespace
 			return 1;
 		}
 		Log(LogInfo, "Found target PID: {}", pId);
-		HANDLE hProcess = Vendetta::FindProcessHandleInternal(pId);
-		if (hProcess == INVALID_HANDLE_VALUE)
+
+
+		HANDLE hProcess;
+		switch (HANDLE_ACQUISITION_MODE)
 		{
-			Log(LogError, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, maybe the proxy does not have PROCESS_QUERY_INFORMATION access?");
+		case HandleMode::ForceOpen:
+			hProcess = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
+								  FALSE, pId);
+			Log(LogWarn, "Opening new Handle");
+			if (hProcess == INVALID_HANDLE_VALUE)
+			{
+				Log(LogError, "OpenProcess failed: {}", GetLastError());
+				return 1;
+			}
+			break;
+		case HandleMode::HijackInternal:
+			hProcess = Vendetta::FindProcessHandleInternal(pId);
+			if (hProcess == INVALID_HANDLE_VALUE)
+			{
+				Log(LogError, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, maybe the proxy does not have PROCESS_QUERY_INFORMATION access?");
+				return 1;
+			}
+			break;
+		case HandleMode::HijackWithFallback:
+			hProcess = Vendetta::FindProcessHandleInternal(pId);
+			if (hProcess == INVALID_HANDLE_VALUE)
+			{
+				Log(LogWarn, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, trying Opening new Handle");
+				hProcess = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
+									  FALSE, pId);
+				if (hProcess == INVALID_HANDLE_VALUE)
+				{
+					Log(LogError, "OpenProcess failed: {}", GetLastError());
+					return 1;
+				}
+			}
+			break;
+		default: 
+			Log(LogError, "Invalid HANDLE_METHOD value");
 			return 1;
 		}
 

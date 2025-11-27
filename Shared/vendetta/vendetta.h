@@ -6,6 +6,15 @@
 #include <TlHelp32.h>
 #include <sstream>
 
+constexpr unsigned long long operator"" _kb(const unsigned long long x)
+{
+	return x * 1024;
+}
+
+constexpr unsigned long long operator"" _mb(const unsigned long long x)
+{
+	return x * 1024 * 1024;
+}
 
 
 namespace Vendetta
@@ -42,9 +51,38 @@ namespace Vendetta
 		}
 	};
 
+	struct SystemInformationBuffer
+	{
+		void* Buffer;
+
+		explicit SystemInformationBuffer(void* p) : Buffer(p) {}
+
+		~SystemInformationBuffer()
+		{
+			if (Buffer)
+			{
+				VirtualFree(Buffer, 0, MEM_RELEASE);
+				Buffer = nullptr;
+			}
+		}
+
+		SystemInformationBuffer(SystemInformationBuffer &&other) noexcept : Buffer(other.Buffer)
+		{
+			other.Buffer = nullptr;
+		}
+
+		SystemInformationBuffer(const SystemInformationBuffer&) = delete;
+		SystemInformationBuffer& operator=(const SystemInformationBuffer&) = delete;
+
+		explicit operator bool() const
+		{
+			return Buffer != nullptr;
+		}
+	};
+
 	DWORD FindProcessId(const std::wstring &processName);
-	std::vector<uint8_t> GetSystemInfoClass(SYSTEM_INFORMATION_CLASS infoClass);
-	PVOID GetProcessObjectTypeFromTarget(const DWORD targetPid);
+	SystemInformationBuffer GetSystemInfoClass(SYSTEM_INFORMATION_CLASS infoClass, ULONG startBufferSize = 512_kb);
+	PVOID GetProcessObjectTypeFromTarget(DWORD targetPid);
 	BYTE GetProcessObjectTypeIndex();
 	HANDLE FindProcessHandleInternal(const DWORD &targetPid);
 

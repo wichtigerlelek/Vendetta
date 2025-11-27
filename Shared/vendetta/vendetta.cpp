@@ -1,7 +1,9 @@
 #include "vendetta/vendetta.h"
+
+#include <mutex>
+
 #include "vendetta/logger.h"
 
-#include <ntpsapi.h>
 #include <ntldr.h>
 #include <ntioapi.h>
 #include <phnt_ntdef.h>
@@ -43,23 +45,32 @@ namespace Vendetta
 		return pId;
 	}
 
-    std::vector<uint8_t> GetSystemInfoClass(SYSTEM_INFORMATION_CLASS infoClass)
+    SystemInformationBuffer GetSystemInfoClass(const SYSTEM_INFORMATION_CLASS infoClass, const ULONG startBufferSize)
     {
-        ULONG bufferSize = 0x1000;
+        ULONG bufferSize = startBufferSize;
         ULONG expectedSize = 0;
-        std::vector<uint8_t> buffer;
+        uint8_t* buffer = nullptr;
+        constexpr int maxTries = 3;
+		int tries = 0;
         NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
         do
         {
-            buffer.resize(bufferSize);
-            if (status = Sw3NtQuerySystemInformation(infoClass, buffer.data(), bufferSize, &expectedSize); NT_SUCCESS(status))
-                break;
-            if (expectedSize > bufferSize)
-                bufferSize = expectedSize + 0x1000;
-            Log(LogInfo, "Resizing SystemInformation buffer to {:d}kb", bufferSize / 1024);
-        } while (status == STATUS_INFO_LENGTH_MISMATCH);
+        	buffer = static_cast<uint8_t*>(VirtualAlloc(nullptr, bufferSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 
-        return buffer;
+            status = Sw3NtQuerySystemInformation(infoClass, buffer, bufferSize, &expectedSize);
+            if (NT_SUCCESS(status))
+                break;
+
+            VirtualFree(buffer, 0, MEM_RELEASE);
+            buffer = nullptr;
+
+            if (expectedSize > bufferSize)
+                bufferSize = expectedSize + 4096 + (expectedSize / 10);
+            Log(LogInfo, "Resizing SystemInformationBuffer ({}) to {:d}kb", static_cast<int>(infoClass), bufferSize / 1024);
+            tries++;
+        } while (status == STATUS_INFO_LENGTH_MISMATCH || tries < maxTries);
+
+        return SystemInformationBuffer(buffer);
     }
 
     PVOID GetProcessObjectTypeFromTarget(const DWORD targetPid)
@@ -67,12 +78,18 @@ namespace Vendetta
         const HANDLE hLocalHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, targetPid);
         if (!hLocalHandle)
         {
-            Log(LogError, "Could not open target process to get anchor handle.");
+            Log(LogError, "Could not open target process to get anchor handle");
             return nullptr;
         }
 
-        auto handleBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
-        const auto pHandleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(handleBuffer.data());
+        const auto handleBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
+        if (!handleBuffer)
+        {
+            Log(LogError, "GetProcessObjectTypeFromTarget: Invalid SystemExtendedHandleInformation buffer");
+            return nullptr;
+        }
+
+        const auto pHandleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(handleBuffer.Buffer);
         PVOID targetObjectAddress = nullptr;
         const DWORD myPid = GetCurrentProcessId();
 
@@ -98,81 +115,75 @@ namespace Vendetta
     }
     BYTE GetProcessObjectTypeIndex()
     {
+        static BYTE typeIndex = 0;
+        static bool initialized = false;
+        static std::mutex initMutex;
+
+        if (initialized) return typeIndex;
+
+        std::lock_guard lock(initMutex);
+        if (initialized) return typeIndex;
+
         HANDLE hSelf = GetCurrentProcess();
         HANDLE hRealSelf = nullptr;
 
-        Sw3NtDuplicateObject(GetCurrentProcess(), hSelf,
-            GetCurrentProcess(), &hRealSelf, 0, 0,
-            DUPLICATE_SAME_ACCESS);
+        Sw3NtDuplicateObject(GetCurrentProcess(), hSelf, GetCurrentProcess(),
+            &hRealSelf, 0, 0, DUPLICATE_SAME_ACCESS);
 
-        ULONG size = 0x10000;
-        PSYSTEM_HANDLE_INFORMATION_EX info;
-        NTSTATUS status;
-        BYTE typeIndex = 0;
+        auto bufferWrapper = GetSystemInfoClass(SystemExtendedHandleInformation, 512_kb);
 
-        do
+        if (bufferWrapper)
         {
-            info = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(VirtualAlloc(
-                nullptr, size, MEM_COMMIT, PAGE_READWRITE));
-            status = Sw3NtQuerySystemInformation(
-                SystemExtendedHandleInformation, info, size, &size);
-            if (std::cmp_equal(status, STATUS_INFO_LENGTH_MISMATCH))
-            {
-                VirtualFree(info, 0, MEM_RELEASE);
-                size *= 2;
-            }
-        } while (status == STATUS_INFO_LENGTH_MISMATCH);
-
-        if (NT_SUCCESS(status) && info)
-        {
+            auto info = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(bufferWrapper.Buffer);
             DWORD myPID = GetCurrentProcessId();
+
             for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++)
             {
-                if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID)
-                    &&
+                if (info->Handles[i].UniqueProcessId == UlongToHandle(myPID) &&
                     info->Handles[i].HandleValue == hRealSelf)
                 {
-                    typeIndex = static_cast<BYTE>(info->Handles[i].
-                        ObjectTypeIndex);
+                    typeIndex = static_cast<BYTE>(info->Handles[i].ObjectTypeIndex);
+                    initialized = true;
                     break;
                 }
             }
         }
+        if (hRealSelf) Sw3NtClose(hRealSelf);
 
-        if (info) VirtualFree(info, 0, MEM_RELEASE);
-        Sw3NtClose(hRealSelf);
         return typeIndex;
     }
 
 	HANDLE FindProcessHandleInternal(const DWORD& targetPid)
 	{
-		auto systemInfoBuffer = GetSystemInfoClass(SystemExtendedHandleInformation);
-		const auto handleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>(systemInfoBuffer.data());
+		const auto systemInfoBuffer = GetSystemInfoClass(SystemExtendedHandleInformation, 6_mb);
+		if (!systemInfoBuffer)
+		{
+            Log(LogError, "FindProcessHandleInternal: Invalid SystemExtendedHandleInformation buffer");
+			return INVALID_HANDLE_VALUE;
+		}
+
+		const auto handleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(systemInfoBuffer.Buffer);
 
         HANDLE hFound = INVALID_HANDLE_VALUE;
-        DWORD myPid = GetCurrentProcessId();
+        const DWORD myPid = GetCurrentProcessId();
 
         for (ULONG_PTR i = 0; i < handleInfo->NumberOfHandles; i++) {
-            auto& entry = handleInfo->Handles[i];
+            const auto& entry = handleInfo->Handles[i];
 
             if (entry.UniqueProcessId != UlongToHandle(myPid)) continue;
 
             if (entry.ObjectTypeIndex != GetProcessObjectTypeIndex())
                 continue;
 
-            const ACCESS_MASK needed = PROCESS_VM_WRITE | PROCESS_VM_OPERATION;
-            if ((entry.GrantedAccess & needed) != needed) continue;
+            if (constexpr ACCESS_MASK needed = PROCESS_VM_WRITE | PROCESS_VM_OPERATION; (entry.GrantedAccess & needed) != needed) continue;
 
-            HANDLE hCandidate = entry.HandleValue;
-
-            if (GetProcessId(hCandidate) == targetPid) {
+            if (const HANDLE hCandidate = entry.HandleValue; GetProcessId(hCandidate) == targetPid) {
                 hFound = hCandidate;
                 Log(LogInfo, "Found internal handle: {:p} (Access: {:x})", hFound, static_cast<unsigned int>(entry.GrantedAccess));
                 break;
             }
         }
 
-        VirtualFree(handleInfo, 0, MEM_RELEASE);
         return hFound;
 	}
 

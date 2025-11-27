@@ -13,7 +13,25 @@
 
 namespace
 {
-	bool SetPrivilege(const char* szPrivilege, bool bState = true)
+	void EnableWindowsAnsi() {
+		const HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+		const HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
+		if (hOut == INVALID_HANDLE_VALUE || hErr == INVALID_HANDLE_VALUE) return;
+
+		DWORD dwMode = 0;
+
+		if (GetConsoleMode(hOut, &dwMode)) {
+			dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+			SetConsoleMode(hOut, dwMode);
+		}
+
+		if (GetConsoleMode(hErr, &dwMode)) {
+			dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+			SetConsoleMode(hErr, dwMode);
+		}
+	}
+
+	bool SetPrivilege(const char* szPrivilege, const bool bState = true)
 	{
 		HANDLE hToken;
 		if (!OpenProcessToken(GetCurrentProcess(),
@@ -50,12 +68,12 @@ namespace
 	std::map<DWORD, std::wstring> GetProcessMap()
 	{
 		std::map<DWORD, std::wstring> processMap;
-		auto sysInfoBuffer = Vendetta::GetSystemInfoClass(
-			SystemProcessInformation);
-		if (sysInfoBuffer.empty()) return processMap;
+		const auto sysInfoBuffer = Vendetta::GetSystemInfoClass(
+			SystemProcessInformation, 6_mb);
+		if (!sysInfoBuffer.Buffer) return processMap;
 
-		auto pProcessInfo = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(
-			sysInfoBuffer.data());
+		auto pProcessInfo = static_cast<PSYSTEM_PROCESS_INFORMATION>(
+			sysInfoBuffer.Buffer);
 		while (true)
 		{
 			const DWORD pid = static_cast<DWORD>(reinterpret_cast<uintptr_t>(
@@ -86,9 +104,9 @@ namespace
 			                          : L"Unknown";
 
 		auto handleBuffer = Vendetta::GetSystemInfoClass(
-			SystemExtendedHandleInformation);
-		const auto pHandleInfo = reinterpret_cast<PSYSTEM_HANDLE_INFORMATION_EX>
-			(handleBuffer.data());
+			SystemExtendedHandleInformation, 6_mb);
+		const auto pHandleInfo = static_cast<PSYSTEM_HANDLE_INFORMATION_EX>
+			(handleBuffer.Buffer);
 		PVOID targetObjectAddress = Vendetta::GetProcessObjectTypeFromTarget(
 			targetPid);
 		const DWORD myPid = GetCurrentProcessId();
@@ -100,6 +118,9 @@ namespace
 		{
 			const auto& entry = pHandleInfo->Handles[i];
 
+			if (entry.UniqueProcessId == ULongToHandle(4))
+				continue; // System process
+
 			if (entry.Object != targetObjectAddress)
 				continue;
 
@@ -107,9 +128,12 @@ namespace
 				continue;
 
 			std::wstring ownerName = L"Unknown";
-			DWORD ownerPid = reinterpret_cast<DWORD>(entry.UniqueProcessId);
-			if (processMap.contains(ownerPid))
+			if (DWORD ownerPid = reinterpret_cast<DWORD>(entry.UniqueProcessId); processMap.contains(ownerPid))
 				ownerName = processMap[ownerPid];
+
+			if (ownerName == L"csrss.exe" || ownerName == L"lsass.exe")
+				continue;
+
 
 			Log(LogInfo, "{} ({:d}) holds a handle to {} with Access: 0x{:x}",
 			    std::string(ownerName.begin(), ownerName.end()),
@@ -283,6 +307,8 @@ namespace
 
 int main()
 {
+	EnableWindowsAnsi();
+
 	std::println(
 		R"(____   ____                 .___      __    __          
 \   \ /   /____   ____    __| _/_____/  |__/  |______   
@@ -304,10 +330,13 @@ int main()
 	if constexpr (COPY_AND_DELETE)
 		Log(LogWarn, "COPY_AND_DELETE is enabled. This is not bad, it is just a bit less stealthy");
 
-	auto getExeDirectory = [&]()
+	if constexpr (FIND_HANDLE_TO_TARGET)
+		Log(LogWarn, "FIND_HANDLE_TO_PROCESS is enabled. This is just a quality of life feature");
+
+	auto getExeDirectory = [&]
 	{
 		char buffer[MAX_PATH];
-		if (GetModuleFileNameA(NULL, buffer, MAX_PATH) == 0)
+		if (GetModuleFileNameA(nullptr, buffer, MAX_PATH) == 0)
 		{
 			return std::string("");
 		}
@@ -334,7 +363,11 @@ int main()
 		return 2;
 	}
 
-	FindHandleToProcess(pId);
+	if constexpr (FIND_HANDLE_TO_TARGET)
+	{
+		Log(LogInfo, "Searching for handles to {}", std::string(TARGET.begin(), TARGET.end()));
+		FindHandleToProcess(pId);
+	}
 
 	DWORD target = 0;
 	std::print(">> Inject Core into Proxy (PID): ");
@@ -342,13 +375,21 @@ int main()
 	if (target != 0)
 	{
 		Log(LogInfo, "Injecting into PID = {}", target);
-		InjectCoreDll(target, coreDllPath);
-		for (int i = 0; i < 3; ++i)
+		switch (CORE_INJECTION_METHOD)
 		{
-			Log(LogWarn, "Unloading in {}", 3-i);
-			Sleep(1000);
+		case CoreInjectionMethod::LoadLibraryInjection:
+			InjectCoreDll(target, coreDllPath);
+			for (int i = 0; i < 3; ++i)
+			{
+				Log(LogWarn, "Unloading in {}", 3 - i);
+				Sleep(1000);
+			}
+			FreeCoreDll(target);
+			break;
+		case CoreInjectionMethod::PhantomDllWithManualMapping:
+			Log(LogError, "PhantomDllWithManualMapping is not implemented yet.");
+			break;
 		}
-		FreeCoreDll(target);
 	}
 	return 0;
 }

@@ -1,9 +1,7 @@
 #pragma once
-#include <windows.h>
+#include <phnt_windows.h>
 #include <print>
-#include <string_view>
 #include <chrono>
-#include <format>
 
 enum LogType : uint8_t
 {
