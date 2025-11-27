@@ -1,11 +1,11 @@
 # Vendetta
 **Threadless and Handleless Proxy / Phantom DLL Injector**
 
-Vendetta is a proof-of-concept User-Mode Proxy-Injector that hides itself in a trusted process and utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection. It works very well against Usermode Anti-Cheats as the injector is virtually invisible to them because ot the Proxy-Injection nature.
+Vendetta is a proof-of-concept User-Mode Proxy-Injector that hides itself in a trusted process and utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection. It works very well against Usermode Anti-Cheats as the injector is virtually invisible to them because ot the Proxy-Injection nature. 
+
+Proxying is much more stealthy than injecting from the injector itself because if you proxy Discord for example, the AC trusts Discord because it injects its own overlay into games so it needs `PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION` access.
 
 Unlike standard injectors, Vendetta does **not need a Handle** to the target, avoids creating new threads, and avoids `MEM_PRIVATE` allocations for the payload. It uses `NtQueueApcThreadEx` for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
-
-This is also much more stealthy than regular injectors because if you proxy Discord for example, the AC trusts Discord because it injects its own overlay into games so it needs `PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION` access.
 
 **PLEASE DO NOT TEST THIS AGAINST A KERNEL ANTICHEAT**
 
