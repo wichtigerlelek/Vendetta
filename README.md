@@ -1,7 +1,7 @@
 # Vendetta
 **Threadless and Handleless Proxy / Phantom DLL Injector**
 
-Vendetta is a proof-of-concept User-Mode Proxy-Injector that hides itself in a trusted process and utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection. It works very well against Usermode Anti-Cheats as the injector is virtually invisible to them because it hides itself in a trusted / whitelisted process (Proxy).
+Vendetta is a proof-of-concept User-Mode Proxy-Injector that hides itself in a trusted process and utilizes **Transacted Section Hollowing** (based on Forrest Orr's [Phantom DLL](https://github.com/forrest-orr/phantom-dll-hollower-poc) technique) combined with syscalls to achieve stealth-optimized injection. It works very well against Usermode Anti-Cheats as the injector is virtually invisible to them because ot the Proxy-Injection nature.
 
 Unlike standard injectors, Vendetta does **not need a Handle** to the target, avoids creating new threads, and avoids `MEM_PRIVATE` allocations for the payload. It uses `NtQueueApcThreadEx` for threadless execution and calls `LdrpInsertDataTableEntry` to manually link the module into the target's PEB, Red-Black Tree, and Hash Table.
 
