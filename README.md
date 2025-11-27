@@ -105,6 +105,7 @@ const std::wstring BENIGN_DLL = LR"(C:\Windows\System32\xpsservices.dll)";
 * **Native-Linking:** Locates and calls `ntdll!LdrpInsertDataTableEntry` to register the module in the PEB (`PEB_LDR_DATA`), `LdrpHashTable`, and `LdrpModuleBaseAddressIndex`.
 
 ## Roadmap
+- [ ] Add Manual-Mapping
 - [ ] Add Global Event to perfectly synchronize Injection and Unloading of Vendetta Core in the Proxy.
 - [ ] Memory-Only Loading: Support loading DLLs directly from memory buffers (avoiding disk I/O entirely).
 
