@@ -48,18 +48,18 @@ namespace
 		Log(LogInfo, "Found target PID: {}", pId);
 
 
-		HANDLE hProcess;
+		HANDLE hProcess = INVALID_HANDLE_VALUE;
 		switch (HANDLE_ACQUISITION_MODE)
 		{
 		case HandleMode::ForceOpen:
 			hProcess = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
 								  FALSE, pId);
-			Log(LogWarn, "Opening new Handle");
 			if (hProcess == INVALID_HANDLE_VALUE)
 			{
 				Log(LogError, "OpenProcess failed: {}", GetLastError());
 				return 1;
 			}
+			Log(LogWarn, "Opened Handle: {}", hProcess);
 			break;
 		case HandleMode::HijackInternal:
 			hProcess = Vendetta::FindProcessHandleInternal(pId);
@@ -73,7 +73,7 @@ namespace
 			hProcess = Vendetta::FindProcessHandleInternal(pId);
 			if (hProcess == INVALID_HANDLE_VALUE)
 			{
-				Log(LogWarn, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found, trying Opening new Handle");
+				Log(LogWarn, "No internal PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION Handle found. Opening new Handle");
 				hProcess = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_READ | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION,
 									  FALSE, pId);
 				if (hProcess == INVALID_HANDLE_VALUE)
@@ -81,11 +81,9 @@ namespace
 					Log(LogError, "OpenProcess failed: {}", GetLastError());
 					return 1;
 				}
+				Log(LogWarn, "Opened Handle: {}", hProcess);
 			}
 			break;
-		default: 
-			Log(LogError, "Invalid HANDLE_METHOD value");
-			return 1;
 		}
 
 		if constexpr (COPY_AND_DELETE)

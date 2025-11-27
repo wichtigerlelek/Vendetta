@@ -370,8 +370,20 @@ int main()
 	}
 
 	DWORD target = 0;
-	std::print(">> Inject Core into Proxy (PID): ");
-	std::cin >> target;
+	switch (PROXY_TARGET)
+	{
+	case ProxyTarget::SelectByPid:
+		std::print(">> Inject Core into Proxy (PID): ");
+		std::cin >> target;
+		break;
+	case ProxyTarget::Discord:
+		target = Vendetta::FindProcessId(L"Discord.exe");
+		break;
+	case ProxyTarget::Svchost:
+		target = Vendetta::FindProcessId(L"svchost.exe");
+		break;
+	}
+
 	if (target != 0)
 	{
 		Log(LogInfo, "Injecting into PID = {}", target);
