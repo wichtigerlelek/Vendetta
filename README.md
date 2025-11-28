@@ -13,7 +13,7 @@ You can only really read memory from a Kernel-protected game if you proxy Discor
 
 ### Virustotal Results
 - Stager: https://www.virustotal.com/gui/file/9985e2b63ea740fb1c4b34e2c67bd8a2f685f6f38b5d230f7c84e72e1750eb0a?nocache=1
-- Core: https://www.virustotal.com/gui/file/26280b6ec80598ec45d0e0ab20f16d4aa8dba12695f4368dec2d3e50a76f3e86?nocache=1
+- Core (No Metasploit Shellcode): https://www.virustotal.com/gui/file/26280b6ec80598ec45d0e0ab20f16d4aa8dba12695f4368dec2d3e50a76f3e86?nocache=1
 
 ## Key Features
 * **Proxy Injection:** Uses a trusted process as a proxy.
